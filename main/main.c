@@ -40,7 +40,7 @@ const uint8_t request_co_pot_value[] = { 0x04, 0x00, 0x08, 0x04, 0x03, };
 const uint8_t request_o2_sensor_value[] = { 0x04, 0x00, 0x08, 0x05, 0x03, };
 const uint8_t request_ignition_time[] = { 0x04, 0x00, 0x08, 0x07, 0x03, };
 
-uint8_t kwp2000_session_packet_id = 0;
+uint8_t iso9141_session_packet_id = 0;
 
 bool k_line_send_byte(const uint8_t send_byte, bool wait_echo_byte)
 {
@@ -83,7 +83,7 @@ int k_line_read_bytes(uint8_t* bytes, int bytes_count, bool send_echo, TickType_
     return bytes_read;
 }
 
-bool kwp2000_send_packet(const uint8_t* packet)
+bool iso9141_send_packet(const uint8_t* packet)
 {
     const uint8_t packet_length = packet[0];
 
@@ -92,7 +92,7 @@ bool kwp2000_send_packet(const uint8_t* packet)
         return false;
 
     // Send packet sequence number
-    if (!k_line_send_byte(kwp2000_session_packet_id++, true))
+    if (!k_line_send_byte(iso9141_session_packet_id++, true))
         return false;
 
     // Send packet data
@@ -109,19 +109,19 @@ bool kwp2000_send_packet(const uint8_t* packet)
 
 void send_nop_packet()
 {
-    kwp2000_send_packet(no_data);
+    iso9141_send_packet(no_data);
 }
 
 // will read packet and return it's data
-int kwp2000_recv_packet(uint8_t * rx_buffer)
+int iso9141_recv_packet(uint8_t * rx_buffer)
 {
 
-    kwp2000_session_packet_id++;
+    iso9141_session_packet_id++;
 
     return 0;
 }
 
-void kwp2000_send_slow_init_wakeup()
+void iso9141_send_slow_init_wakeup()
 {
     // Bit-bang 5baud init byte
     gpio_reset_pin(UART_TXD_PIN);
@@ -143,7 +143,7 @@ void kwp2000_send_slow_init_wakeup()
     gpio_set_level(UART_TXD_PIN, GPIO_LEVEL_HIGH);
 }
 
-void kwp2000_start_full_speed()
+bool iso9141_start_full_speed()
 {
     const uart_config_t uart_config = {
         .baud_rate = UART_BAUD_RATE,
@@ -159,7 +159,7 @@ void kwp2000_start_full_speed()
     uart_set_pin(UART_NUMBER, UART_TXD_PIN, UART_RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 }
 
-bool kwp2000_wait_handshake()
+bool iso9141_wait_keywords()
 {
     uint8_t rx_buffer[2];
 
@@ -169,22 +169,22 @@ bool kwp2000_wait_handshake()
     return true;
 }
 
-void kwp2000_read_ecu_init_data()
+void iso9141_read_ecu_init_data()
 {
 
 }
 
-void ecu_connect_kwp2000(void *)
+void ecu_connect_iso9141(void *)
 {
-    kwp2000_session_packet_id = 0;
+    iso9141_session_packet_id = 0;
 
-    kwp2000_send_slow_init_wakeup();
+    iso9141_send_slow_init_wakeup();
 
-    kwp2000_start_full_speed();
+    if (!iso9141_start_full_speed());
 
-    kwp2000_wait_handshake();
+    iso9141_wait_keywords();
 
-    kwp2000_read_ecu_init_data();
+    iso9141_read_ecu_init_data();
 
     // Start ecu send/recv queue
     // xTaskCreate();
@@ -196,7 +196,7 @@ void init(void)
     delay(5000);
 
     // start ECU connection task
-    xTaskCreate(ecu_connect_kwp2000, "ecu_connect_kwp2000", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
+    xTaskCreate(ecu_connect_iso9141, "ecu_connect_iso9141", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
 }
 
 void app_main(void)
