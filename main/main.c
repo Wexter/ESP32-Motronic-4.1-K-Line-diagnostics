@@ -6,6 +6,14 @@
 #include "string.h"
 #include "driver/gpio.h"
 
+#ifndef GPIO_LEVEL_LOW
+#define GPIO_LEVEL_LOW 0
+#endif
+
+#ifndef GPIO_LEVEL_HIGH
+#define GPIO_LEVEL_HIGH 1
+#endif
+
 #define UART_NUMBER UART_NUM_0
 #define UART_RX_BUF_SIZE 256
 #define UART_TXD_PIN GPIO_NUM_1
@@ -115,21 +123,24 @@ int kwp2000_recv_packet(uint8_t * rx_buffer)
 
 void kwp2000_send_slow_init_wakeup()
 {
-    const uart_config_t uart_config = {
-        .baud_rate = 5,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .source_clk = UART_SCLK_DEFAULT,
-    };
+    // Bit-bang 5baud init byte
+    gpio_reset_pin(UART_TXD_PIN);
 
-    // We won't use a buffer for sending data.
-    uart_driver_install(UART_NUMBER, UART_RX_BUF_SIZE, 0, 0, NULL, 0);
-    uart_param_config(UART_NUMBER, &uart_config);
-    uart_set_pin(UART_NUMBER, UART_TXD_PIN, UART_RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    gpio_set_direction(UART_TXD_PIN, GPIO_MODE_OUTPUT);
 
-    k_line_send_byte(KWP2000_INIT_ECU_DST_ADDRESS, false);
+    gpio_set_level(UART_TXD_PIN, GPIO_LEVEL_LOW);
+
+    vTaskDelay(1200 / portTICK_PERIOD_MS);
+
+    gpio_set_level(UART_TXD_PIN, GPIO_LEVEL_HIGH);
+
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+
+    gpio_set_level(UART_TXD_PIN, GPIO_LEVEL_LOW);
+
+    vTaskDelay(600 / portTICK_PERIOD_MS);
+
+    gpio_set_level(UART_TXD_PIN, GPIO_LEVEL_HIGH);
 }
 
 void kwp2000_start_full_speed()
