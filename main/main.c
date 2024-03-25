@@ -153,10 +153,18 @@ bool iso9141_start_full_speed()
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         .source_clk = UART_SCLK_DEFAULT,
     };
+
     // We won't use a buffer for sending data.
     uart_driver_install(UART_NUMBER, UART_RX_BUF_SIZE, 0, 0, NULL, 0);
     uart_param_config(UART_NUMBER, &uart_config);
     uart_set_pin(UART_NUMBER, UART_TXD_PIN, UART_RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+
+    uint8_t rx_byte;
+
+    if (0 < k_line_read_bytes(&rx_byte, 1, false, 1000 / portTICK_PERIOD_MS) && rx_byte == 0x55)
+        return false;
+
+    return true;
 }
 
 bool iso9141_wait_keywords()
