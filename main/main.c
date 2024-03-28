@@ -31,53 +31,68 @@
 #define delay(ms) vTaskDelay(ms / portTICK_PERIOD_MS);
 
 // 0x00
-const uint8_t no_data_cmd[] = { 0x03, 0x00, 0x09, 0x00, };
+const uint8_t no_data_request[] = { 0x03, 0x00, 0x09, 0x00, };
+// 0x02 EPROM read request
+const uint8_t ml41_eprom_read_request[] = { 0x06, 0x00, 0x03, 0x0D, 0x00, 0x00, 0x03,};
 // 0x06
-const uint8_t get_afr_cmd[] = { 0x04, 0x00, 0x08, 0x00, 0x03, };
+const uint8_t get_afr_request[] = { 0x04, 0x00, 0x08, 0x00, 0x03, };
 // 0x07
-const uint8_t get_battery_voltage_cmd[] = { 0x04, 0x00, 0x08, 0x01, 0x03, };
+const uint8_t get_battery_voltage_request[] = { 0x04, 0x00, 0x08, 0x01, 0x03, };
 // 0x08
-const uint8_t get_intake_air_temp_cmd[] = { 0x04, 0x00, 0x08, 0x02, 0x03, };
+const uint8_t get_intake_air_temp_request[] = { 0x04, 0x00, 0x08, 0x02, 0x03, };
 // 0x09
-const uint8_t get_coolant_temp_cmd[] = { 0x04, 0x00, 0x08, 0x03, 0x03, };
+const uint8_t get_coolant_temp_request[] = { 0x04, 0x00, 0x08, 0x03, 0x03, };
 // 0x0A
-const uint8_t erase_ecu_error_codes_cmd[] = { 0x03, 0x00, 0x05, 0x03, };
-// 0x11
-const uint8_t get_ecu_error_codes_cmd[] = { 0x03, 0x00, 0x07, 0x03, };
-// 0x12
-const uint8_t get_engine_rpm_cmd[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x3a, 0x03, };
-// 0x13
-const uint8_t get_throttle_pos_cmd[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x20, 0x03, };
-// 0x14
-const uint8_t get_engine_load_cmd[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x42, 0x03, };
-// 0x15
-const uint8_t get_injection_time_cmd[] = { 0x06, 0x00, 0x01, 0x02, 0x00, 0x62, 0x03, };
+const uint8_t erase_ecu_error_codes_request[] = { 0x03, 0x00, 0x05, 0x03, };
 // 0x0C
-const uint8_t get_co_pot_value_cmd[] = { 0x04, 0x00, 0x08, 0x04, 0x03, };
+const uint8_t get_co_pot_value_request[] = { 0x04, 0x00, 0x08, 0x04, 0x03, };
 // 0x0D
-const uint8_t get_o2_sensor_value_cmd[] = { 0x04, 0x00, 0x08, 0x05, 0x03, };
+const uint8_t get_o2_sensor_value_request[] = { 0x04, 0x00, 0x08, 0x05, 0x03, };
 // 0x0F
-const uint8_t get_ignition_time_cmd[] = { 0x04, 0x00, 0x08, 0x07, 0x03, };
+const uint8_t get_ignition_time_request[] = { 0x04, 0x00, 0x08, 0x07, 0x03, };
+// 0x11
+const uint8_t get_ecu_error_codes_request[] = { 0x03, 0x00, 0x07, 0x03, };
+// 0x12
+const uint8_t get_engine_rpm_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x3a, 0x03, };
+// 0x13 TPS + O2 sensor
+const uint8_t get_throttle_pos_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x20, 0x03, };
+// 0x14
+const uint8_t get_engine_load_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x42, 0x03, };
+// 0x15
+const uint8_t get_injection_time_request[] = { 0x06, 0x00, 0x01, 0x02, 0x00, 0x62, 0x03, };
 
-// -------------- ML1.5 specific commands --------------
+// -------------- ML1.5 commands --------------
 // 0x16
-const uint8_t ml15_get_engine_rpm_cmd[] = { 0x03, 0x00, 0x12, 0x03, };
+// const uint8_t ml15_get_engine_rpm_request[] = { 0x03, 0x00, 0x12, 0x03, };
 // 0x17
-const uint8_t ml15_get_ecu_ad_param1_cmd[] = { 0x03, 0x00, 0x1c, 0x03, };
+// const uint8_t ml15_get_ecu_ad_param1_request[] = { 0x03, 0x00, 0x1c, 0x03, };
 // 0x18
-const uint8_t ml15_get_ecu_ad_param2_cmd[] = { 0x06, 0x00, 0x01, 0x01, 0x01, 0xF8, 0x03, };
+// const uint8_t ml15_get_ecu_ad_param2_request[] = { 0x06, 0x00, 0x01, 0x01, 0x01, 0xF8, 0x03, };
 
-// -------------- ML4.1 specific commands --------------
+// -------------- ML4.1 commands --------------
 // 0x19 AC Switch & Drive request
-const uint8_t ml41_get_ac_drive_switch_cmd[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x22, 0x03, };
-// 0x1a Lambda regulation
-const uint8_t ml41_get_lambda_reg_cmd[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x29, 0x03, };
-// 0x1b Fuel puml
-const uint8_t ml41_get_ad_param3_cmd[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x90, 0x03, };
+const uint8_t ml41_get_ac_drive_switch_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x22, 0x03, };
+// 0x1a Lambda regulation open/close
+const uint8_t ml41_get_lambda_reg_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x29, 0x03, };
+// 0x1b Fuel pump relay
+const uint8_t ml41_get_ad_param3_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x90, 0x03, };
 // 0x1c
-const uint8_t ml41_get_adsorber_cmd[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0xb0, 0x03, };
+const uint8_t ml41_get_adsorber_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0xb0, 0x03, };
 // 0x1d
-const uint8_t ml15_test_injector_request[] = { 0x04, 00, 0x04, 0x0e, 0x03, };
+const uint8_t ml41_enable_injector_request[] = { 0x04, 00, 0x04, 0x0e, 0x03, };
+// 0x1e
+const uint8_t ml41_enable_adsorber_valve_request[] = { 0x04, 0x00, 0x04, 0x1f, 0x03, };
+// 0x1f
+const uint8_t ml41_enable_idle_valve_request[] = { 0x04, 0x00, 0x04, 0x21, 0x03, };
+
+// 0x20
+// const uint8_t ml15_enable_injector_request[] = { 0x04, 0x00, 0x04, 0x10, 0x03, };
+// 0x21
+// const uint8_t ml15_enable_adsorber_valve_request[] = { 0x04, 0x00, 0x04, 0x05, 0x03, };
+// 0x22
+// const uint8_t ml15_enable_idle_valve_request[] = { 0x04, 0x00, 0x04, 0x04, 0x03, };
+// 0x23
+// const uint8_t ml15_enable_???_request[] = { 0x04, 0x00, 0x04, 0x17, 0x03, };
 
 
 #define EEPROME_CODE_SIZE 11
@@ -105,161 +120,164 @@ void UpdateMainForm(uint8_t *ecu_response)
 
 void UpdateML41Parameters(uint8_t * ecu_response)
 {
+    /**
+     * ecu_response[0] - Request packet ID
+     * ecu_response[1] - first byte of ecu response
+    */
     /* SendPacket ID */
     switch(ecu_response[0]) {
-    case 6:
-    case 0xc:
-        /* AFTemp & COP  */
-        float value = ecu_response[5] * 5 / 256.f;
-        break;
-    case 7:
+        /* AFR & COP  */
+        case 6:
+        case 0xc:
+            float value = ecu_response[5] * 5 / 256.f;
+            break;
         /* Battery voltage */
-        float value = 0.4 + ecu_response[5] / 15.0f;
-        FloatToStrF(2,4,1,(int *)&local_10);
-        break;
-    case 8:
-    case 9:
-                        /* Coolant & Intake air temp */
-        local_c = (double)*(int *)(SYMBOLS_ARRAY + (ecu_response[5]) * 4);
-        FloatToStr((int *)&local_10);
-        break;
-    case 0xd:
-                        /* Lambda */
-        local_14 = (uint)(ecu_response[5]);
-        local_1c = system.@ROUND();
-        local_c = (double)CONCAT44(extraout_EDX,local_1c);
-        FloatToStr((int *)&local_10);
-        break;
-    case 0xf:
-                        /* Ignition time */
-        local_c = (double)SYMBOLS_ARRAY2[(ecu_response[4])];
-        FloatToStr((int *)&local_10);
-        break;
-    case 0x12:
-                        /* Engine RPM */
-        local_14 = (uint)(ecu_response[4]) * 0x28;
-        local_c = (double)local_14;
-        FloatToStr((int *)&local_10);
-        break;
-    case 0x13:
-                        /* TPS */
-        bVar5 = (ecu_response[4]) & 3;
-        if (bVar5 == 0) {
-        local_c = 0.5;
-                        /* MID */
-        system.@LStrLAsg((int *)&local_10,0x54afd4);
-        }
-        else if (bVar5 == 1) {
-        local_c = 1.0;
-                        /* FULL */
-        system.@LStrLAsg((int *)&local_10,0x54afe0);
-        }
-        else if (bVar5 == 2) {
-            local_c = 0.0;
-                            /* IDLE */
-            system.@LStrLAsg((int *)&local_10,0x54afc4);
-        }
-        else if (bVar5 == 3) {
-            local_c = 0.0;
-                            /* ERR */
-            system.@LStrLAsg((int *)&local_10,0x54aff0);
-        }
-        if (*(char *)(*(int *)TfmAdParams + 0x1a6) != '\0') {
+        case 7:
+            float value = 0.4 + ecu_response[5] / 15.0f;
+            FloatToStrF(2,4,1,(int *)&local_10);
+            break;
+        /* Coolant & Intake air temp */
+        /** 
+         * Temperature calculation example
+         * ecu_response[5] = 0xEE
+         * SYMBOLS_ARRAY = 0x554910
+         * ecu_response[5] * 0x04 + SYMBOLS_ARRAY = 0x554cc8
+         * [0x554cc8] = 0xFFFFFFEF = -17
+        */
+        case 8:
+        case 9:
+            local_c = (double)*(int *)(SYMBOLS_ARRAY + (ecu_response[5]) * 4);
+            FloatToStr((int *)&local_10);
+            break;
+        /* Lambda */
+        case 0xd:
+            local_14 = (uint)(ecu_response[5]);
+            local_1c = system.@ROUND();
+            local_c = (double)CONCAT44(extraout_EDX,local_1c);
+            FloatToStr((int *)&local_10);
+            break;
+        /* Ignition time */
+        case 0xf:
+            local_c = (double)SYMBOLS_ARRAY2[(ecu_response[4])];
+            FloatToStr((int *)&local_10);
+            break;
+        /* Engine RPM */
+        /**
+         * ecu_reponse[4] = 0xFF
+         * ecu_response[4] << 3 = 0x07f8
+         * result = (ecu_response[4] << 3) + ((ecu_response[4] << 3) * 4)
+         * result = ecu_response[4] * 28 = 10200 rpm
+        */
+        case 0x12:
+            local_14 = (uint)(ecu_response[4]) * 0x28;
+            local_c = (double)local_14;
+            FloatToStr((int *)&local_10);
+            break;
+        /* TPS */
+        case 0x13:
+            /**
+             * 0x12 - IDLE (ecu_response[4] & 3 == 2)
+             * 0x10 - MID (ecu_response[4] & 3 == 0)
+             * 0x11 - FULL (ecu_response[4] & 3 == 1)
+             * ERR (ecu_response[4] & 3 == 3)
+            */
+            // bVar5 = (ecu_response[4]) & 3;
+            // if (bVar5 == 0) { } // MID
+            // else if (bVar5 == 1) { } // FULL
+            // else if (bVar5 == 2) { } // IDLE
+            // else if (bVar5 == 3) { } // ERR
+
             /* edTrans */
-            if (((ecu_response[4]) & 4) == 0) {
-                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x328),DAT_0055ef80);
-            }
-            else {
-                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x328),DAT_0055ef7c);
-            }
-                            /* edLZond */
+            if (((ecu_response[4]) & 4) == 0) { } // Manual
+            else { } // Auto
+
+            /* edLZond */
             if (((ecu_response[4]) & 0x20) == 0) {
                 TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x314),DAT_0055ef94);
             }
             else {
                 TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x314),DAT_0055ef98);
             }
-        }
-        break;
-    case 0x14:
-        /* Engine Load */
-        local_c = (0.05f * ecu_response[4]);
-        FloatToStrF(2,4,2,(int *)&local_10);
-        break;
-    case 0x15:
-        /* InjectionTime */
-        local_14 = ((uint)(ecu_response[4]) * -0x100 + 0xffff) - (uint)(ecu_response[5]);
-        local_c = (double)((0.3f * local_14) / 250.f);
-        FloatToStrF(2,4,2,(int *)&local_10);
-        break;
-    case 0x19:
-        /* ECU Additional Param 1 */
-        if (*(char *)(*(int *)TfmAdParams + 0x1a6) != '\0') {
-            /* edACDrive */
-            if (((ecu_response[4]) & 8) == 0) {
-                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x32c),DAT_0055ef70);
-            }
-            else {
-                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x32c),DAT_0055ef6c);
-            }
-                            /* edACSwitch */
-            if (((ecu_response[4]) & 0x10) == 0) {
-                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x334),DAT_0055ef70);
-            }
-            else {
-                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x334),DAT_0055ef6c);
-            }
-        }
-        goto LAB_0054af5f;
-    case 0x1a:
-        /* ECU Additional Param 2 */
-        uVar6 = *(char *)(*(int *)TfmAdParams + 0x1a6) == '\0';
-        if (!(bool)uVar6) {
-            /* edLZond */
-            TControl.GetText(*(int *)(*(int *)TfmAdParams + 0x314),(int *)&local_20);
-            @LStrCmp(local_20,DAT_0055ef94);
-                            /* edLZondReg */
-            if ((bool)uVar6) {
-                if (((ecu_response[4]) & 0x20) == 0) {
-                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x318),DAT_0055ef74);
+            break;
+        case 0x14:
+            /* Engine Load */
+            local_c = (0.05f * ecu_response[4]);
+            FloatToStrF(2,4,2,(int *)&local_10);
+            break;
+        case 0x15:
+            /* InjectionTime */
+            local_14 = ((uint)(ecu_response[4]) * -0x100 + 0xffff) - (uint)(ecu_response[5]);
+            local_c = (double)((0.3f * local_14) / 250.f);
+            FloatToStrF(2,4,2,(int *)&local_10);
+            break;
+        case 0x19:
+            /* ECU Additional Param 1 */
+            if (*(char *)(*(int *)TfmAdParams + 0x1a6) != '\0') {
+                /* edACDrive */
+                if (((ecu_response[4]) & 8) == 0) {
+                    TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x32c),DAT_0055ef70);
                 }
                 else {
-                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x318),DAT_0055ef78);
+                    TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x32c),DAT_0055ef6c);
                 }
-            } else {
-                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x318),DAT_0055ef98);
+                                /* edACSwitch */
+                if (((ecu_response[4]) & 0x10) == 0) {
+                    TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x334),DAT_0055ef70);
+                }
+                else {
+                    TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x334),DAT_0055ef6c);
+                }
             }
-        }
-        goto LAB_0054af5f;
-    case 0x1b:
-        if (*(char *)(*(int *)TfmAdParams + 0x1a6) != '\0') {
-                        /* edFuelPump */
-        if (((ecu_response[4]) & 4) == 0) {
-            TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x33c),DAT_0055ef6c);
-        }
-        else {
-            TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x33c),DAT_0055ef70);
-        }
-                        /* edEngPwr */
-        if (((ecu_response[4]) & 0x20) == 0) {
-            TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x31c),DAT_0055ef70);
-        }
-        else {
-            TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x31c),DAT_0055ef6c);
-        }
-        }
-        goto LAB_0054af5f;
-    case 0x1c:
-        if (*(char *)(*(int *)TfmAdParams + 0x1a6) != '\0') {
-                        /* Adsorber */
-        if (((ecu_response[4]) & 0x20) == 0) {
-            TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x320),DAT_0055ef74);
-        }
-        else {
-            TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x320),DAT_0055ef78);
-        }
-        }
-        goto LAB_0054af5f;
+            goto LAB_0054af5f;
+        case 0x1a:
+            /* ECU Additional Param 2 */
+            uVar6 = *(char *)(*(int *)TfmAdParams + 0x1a6) == '\0';
+            if (!(bool)uVar6) {
+                /* edLZond */
+                TControl.GetText(*(int *)(*(int *)TfmAdParams + 0x314),(int *)&local_20);
+                @LStrCmp(local_20,DAT_0055ef94);
+                                /* edLZondReg */
+                if ((bool)uVar6) {
+                    if (((ecu_response[4]) & 0x20) == 0) {
+                    TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x318),DAT_0055ef74);
+                    }
+                    else {
+                    TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x318),DAT_0055ef78);
+                    }
+                } else {
+                    TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x318),DAT_0055ef98);
+                }
+            }
+            goto LAB_0054af5f;
+        case 0x1b:
+            if (*(char *)(*(int *)TfmAdParams + 0x1a6) != '\0') {
+                            /* edFuelPump */
+            if (((ecu_response[4]) & 4) == 0) {
+                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x33c),DAT_0055ef6c);
+            }
+            else {
+                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x33c),DAT_0055ef70);
+            }
+                            /* edEngPwr */
+            if (((ecu_response[4]) & 0x20) == 0) {
+                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x31c),DAT_0055ef70);
+            }
+            else {
+                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x31c),DAT_0055ef6c);
+            }
+            }
+            goto LAB_0054af5f;
+        case 0x1c:
+            if (*(char *)(*(int *)TfmAdParams + 0x1a6) != '\0') {
+                            /* Adsorber */
+            if (((ecu_response[4]) & 0x20) == 0) {
+                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x320),DAT_0055ef74);
+            }
+            else {
+                TControl.SetText(*(int *)(*(int *)TfmAdParams + 0x320),DAT_0055ef78);
+            }
+            }
+            goto LAB_0054af5f;
     }
     /*puVar4 = TList.Get(ParametersList,TList_var_index);
     puVar4[2] = (uint)local_c;
