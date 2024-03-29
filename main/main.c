@@ -23,78 +23,87 @@
 #define UART_RXD_PIN GPIO_NUM_3
 #define UART_BAUD_RATE 8860
 
-#define KWP2000_ECHO_BYTE_TIMEOUT_TICKS (100 / portTICK_PERIOD_MS) // 100ms
-#define KWP2000_ECHO_BYTE_RETRY_COUNT 3
-#define KWP2000_INIT_ECU_DST_ADDRESS 0x10
-#define KWP2000_PACKET_RECV_TIMEOUT_TICKS (100 / portTICK_PERIOD_MS) // 100ms
+#define ISO9141_ECHO_BYTE_TIMEOUT_TICKS (100 / portTICK_PERIOD_MS) // 100ms
+#define ISO9141_ECHO_BYTE_RETRY_COUNT 3
+#define ISO9141_INIT_ECU_DST_ADDRESS 0x10
+#define ISO9141_PACKET_RECV_TIMEOUT_TICKS (100 / portTICK_PERIOD_MS) // 100ms
 
 #define delay(ms) vTaskDelay(ms / portTICK_PERIOD_MS);
 
-// 0x00
-const uint8_t no_data_request[] = { 0x03, 0x00, 0x09, 0x00, };
-// 0x02 EPROM read request
-const uint8_t ml41_eprom_read_request[] = { 0x06, 0x00, 0x03, 0x0D, 0x00, 0x00, 0x03, };
-// 0x06
-const uint8_t get_afr_request[] = { 0x04, 0x00, 0x08, 0x00, 0x03, };
-// 0x07
-const uint8_t get_battery_voltage_request[] = { 0x04, 0x00, 0x08, 0x01, 0x03, };
-// 0x08
-const uint8_t get_intake_air_temp_request[] = { 0x04, 0x00, 0x08, 0x02, 0x03, };
-// 0x09
-const uint8_t get_coolant_temp_request[] = { 0x04, 0x00, 0x08, 0x03, 0x03, };
-// 0x0A
-const uint8_t erase_ecu_error_codes_request[] = { 0x03, 0x00, 0x05, 0x03, };
-// 0x0C
-const uint8_t get_co_pot_value_request[] = { 0x04, 0x00, 0x08, 0x04, 0x03, };
-// 0x0D
-const uint8_t get_o2_sensor_value_request[] = { 0x04, 0x00, 0x08, 0x05, 0x03, };
-// 0x0F
-const uint8_t get_ignition_time_request[] = { 0x04, 0x00, 0x08, 0x07, 0x03, };
-// 0x11
-const uint8_t get_ecu_error_codes_request[] = { 0x03, 0x00, 0x07, 0x03, };
-// 0x12
-const uint8_t get_engine_rpm_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x3a, 0x03, };
-// 0x13 TPS + O2 sensor
-const uint8_t get_throttle_pos_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x20, 0x03, };
-// 0x14
-const uint8_t get_engine_load_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x42, 0x03, };
-// 0x15
-const uint8_t get_injection_time_request[] = { 0x06, 0x00, 0x01, 0x02, 0x00, 0x62, 0x03, };
+#define ECU_NO_DATA              0x00
+#define ECU_READ_EPROM           0x02
+#define ECU_GET_AFR              0x06
+#define ECU_GET_VBAT             0x07
+#define ECU_GET_INT_AIR_TEMP     0x08
+#define ECU_GET_COOLANT_TEMP     0x09
+#define ECU_ERASE_ERR_CODES      0x0A
+#define ECU_GET_CO_POT           0x0C
+#define ECU_GET_O2_SENSOR        0x0D
+#define ECU_GET_IGN_TIME         0x0F
+#define ECU_GET_ERROR_CODES      0x11
+#define ECU_GET_RPM              0x12
+#define ECU_GET_TPS              0x13
+#define ECU_GET_ENG_LOAD         0x14
+#define ECU_GET_INJ_TIME         0x15
+#define ECU_GET_AC_DRV_SW        0x19
+#define ECU_GET_O2_REG           0x1A
+#define ECU_GET_FPUMP_RELAY      0x1B
+#define ECU_GET_ADSORBER_VALVE   0x1C
+#define ECU_ENABLE_INJECTOR      0x1D
+#define ECU_ENABLE_ADSORB_VALVE  0x1E
+#define ECU_ENABLE_IDLE_VALVE    0x1F
+#define ECU_MAX_REQUEST          0x1F
 
-// -------------- ML1.5 commands --------------
-// 0x16
-// const uint8_t ml15_get_engine_rpm_request[] = { 0x03, 0x00, 0x12, 0x03, };
-// 0x17
-// const uint8_t ml15_get_ecu_ad_param1_request[] = { 0x03, 0x00, 0x1c, 0x03, };
-// 0x18
-// const uint8_t ml15_get_ecu_ad_param2_request[] = { 0x06, 0x00, 0x01, 0x01, 0x01, 0xF8, 0x03, };
+uint8_t const ECU_REQUESTS[][8] = {
+   { 0x03, 0x00, 0x09, 0x03, 0x00, 0x00, 0x00, 0x00 }, // 0x00
+   { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x01
+   { 0x06, 0x00, 0x03, 0x0D, 0x00, 0x00, 0x03, 0x00 }, // 0x02
+   { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x03
+   { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x04
+   { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x05
+   { 0x06, 0x00, 0x03, 0x0D, 0x00, 0x00, 0x03, 0x00 }, // 0x06
+   { 0x04, 0x00, 0x08, 0x01, 0x03, 0x00, 0x00, 0x00 }, // 0x07
+   { 0x04, 0x00, 0x08, 0x02, 0x03, 0x00, 0x00, 0x00 }, // 0x08
+   { 0x04, 0x00, 0x08, 0x03, 0x03, 0x00, 0x00, 0x00 }, // 0x09
+   { 0x03, 0x00, 0x05, 0x03, 0x00, 0x00, 0x00, 0x00 }, // 0x0A
+   { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x0B
+   { 0x04, 0x00, 0x08, 0x04, 0x03, 0x00, 0x00, 0x00 }, // 0x0C
+   { 0x04, 0x00, 0x08, 0x05, 0x03, 0x00, 0x00, 0x00 }, // 0x0D
+   { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x0E
+   { 0x04, 0x00, 0x08, 0x07, 0x03, 0x00, 0x00, 0x00 }, // 0x0F
+   { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x10
+   { 0x03, 0x00, 0x07, 0x03, 0x00, 0x00, 0x00, 0x00 }, // 0x11
+   { 0x06, 0x00, 0x01, 0x01, 0x00, 0x3a, 0x03, 0x00 }, // 0x12
+   { 0x06, 0x00, 0x01, 0x01, 0x00, 0x20, 0x03, 0x00 }, // 0x13
+   { 0x06, 0x00, 0x01, 0x01, 0x00, 0x42, 0x03, 0x00 }, // 0x14
+   { 0x06, 0x00, 0x01, 0x02, 0x00, 0x62, 0x03, 0x00 }, // 0x15
 
-// -------------- ML4.1 commands --------------
-// 0x19 AC Switch & Drive request
-const uint8_t ml41_get_ac_drive_switch_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x22, 0x03, };
-// 0x1a Lambda regulation open/close
-const uint8_t ml41_get_lambda_reg_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x29, 0x03, };
-// 0x1b Fuel pump relay
-const uint8_t ml41_get_ad_param3_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0x90, 0x03, };
-// 0x1c
-const uint8_t ml41_get_adsorber_request[] = { 0x06, 0x00, 0x01, 0x01, 0x00, 0xb0, 0x03, };
-// 0x1d
-const uint8_t ml41_enable_injector_request[] = { 0x04, 00, 0x04, 0x0e, 0x03, };
-// 0x1e
-const uint8_t ml41_enable_adsorber_valve_request[] = { 0x04, 0x00, 0x04, 0x1f, 0x03, };
-// 0x1f
-const uint8_t ml41_enable_idle_valve_request[] = { 0x04, 0x00, 0x04, 0x21, 0x03, };
+   // ML1.5 commands
+   { 0x03, 0x00, 0x12, 0x03, 0x00, 0x00, 0x00, 0x00 }, // 0x16
+   { 0x03, 0x00, 0x1c, 0x03, 0x00, 0x00, 0x00, 0x00 }, // 0x17
+   { 0x06, 0x00, 0x01, 0x01, 0x01, 0xF8, 0x03, 0x00 }, // 0x18
 
-// 0x20
-// const uint8_t ml15_enable_injector_request[] = { 0x04, 0x00, 0x04, 0x10, 0x03, };
-// 0x21
-// const uint8_t ml15_enable_adsorber_valve_request[] = { 0x04, 0x00, 0x04, 0x05, 0x03, };
-// 0x22
-// const uint8_t ml15_enable_idle_valve_request[] = { 0x04, 0x00, 0x04, 0x04, 0x03, };
-// 0x23
-// const uint8_t ml15_enable_???_request[] = { 0x04, 0x00, 0x04, 0x17, 0x03, };
+   // ML4.1 additional parameters
+   { 0x06, 0x00, 0x01, 0x01, 0x00, 0x22, 0x03, 0x00 }, // 0x19
+   { 0x06, 0x00, 0x01, 0x01, 0x00, 0x29, 0x03, 0x00 }, // 0x1a
+   { 0x06, 0x00, 0x01, 0x01, 0x00, 0x90, 0x03, 0x00 }, // 0x1b
+   { 0x06, 0x00, 0x01, 0x01, 0x00, 0xb0, 0x03, 0x00 }, // 0x1c
 
-int temperature_values_map[] = {
+   // ML4.1 devices test
+   { 0x04, 0x00, 0x04, 0x0e, 0x03, 0x00, 0x00, 0x00 }, // 0x1d
+   { 0x04, 0x00, 0x04, 0x1f, 0x03, 0x00, 0x00, 0x00 }, // 0x1e
+   { 0x04, 0x00, 0x04, 0x21, 0x03, 0x00, 0x00, 0x00 }, // 0x1f
+
+   // ML1.5 devices test
+   /*
+   { 0x04, 0x00, 0x04, 0x10, 0x03, 0x00, 0x00, 0x00 }, // 0x20
+   { 0x04, 0x00, 0x04, 0x05, 0x03, 0x00, 0x00, 0x00 }, // 0x21
+   { 0x04, 0x00, 0x04, 0x04, 0x03, 0x00, 0x00, 0x00 }, // 0x22
+   { 0x04, 0x00, 0x04, 0x17, 0x03, 0x00, 0x00, 0x00 }, // 0x23
+   */
+};
+
+const int temperature_values_map[] = {
     197, 194, 191, 189, 186, 184, 181, 178, 
     176, 173, 171, 168, 165, 163, 160, 158, 
     155, 152, 150, 147, 145, 142, 139, 137, 
@@ -129,7 +138,7 @@ int temperature_values_map[] = {
     -29, -30, -32, -33, -34, -36, -37, -38, 
 };
 
-int ignition_time_values_map[] = {
+const int ignition_time_values_map[] = {
     10, 108, 107, 106, 105, 105, 104, 103, 
     102, 102, 101, 100, 99, 99, 98, 97, 
     96, 96, 95, 94, 93, 93, 92, 91, 
@@ -164,26 +173,36 @@ int ignition_time_values_map[] = {
     -78, -78, -79, -80, -81, -81, -82, -83,
 };
 
-
 #define EEPROME_CODE_SIZE 11
 #define BOSCH_CODE_SIZE 11
 #define GM_CODE_SIZE 8
 #define ALPHA_CODE_SIZE 3
 
+#define ECU_TYPE_ML41 0
+#define ECU_TYPE_ML15 1
+
 typedef struct ml41_ecu_data {
-    uint8_t packet_id;
+    uint8_t ecu_type;
     uint8_t eeprom_code[EEPROME_CODE_SIZE];
     uint8_t bosch_code[BOSCH_CODE_SIZE];
     uint8_t gm_code[GM_CODE_SIZE];
     uint8_t alpha_code[ALPHA_CODE_SIZE];
-    uint8_t last_sent_packet_id;
 } ml41_ecu_data;
 
-struct ml41_ecu_data ecu_data = {
+struct iso9141_connection
+{
+    uint8_t packet_id;
+    uint8_t last_sent_packet_id;
+} iso9141_connection;
+
+struct iso9141_connection ecu_connection = {
     .packet_id = 0,
     .last_sent_packet_id = 0,
 };
 
+struct ml41_ecu_data ecu_data = {
+    .ecu_type = ECU_TYPE_ML41,
+};
 
 void UpdateML41Parameters(uint8_t * ecu_response)
 {
@@ -290,7 +309,6 @@ void UpdateML41Parameters(uint8_t * ecu_response)
        case 0x1c:
           if (((ecu_response[4]) & 0x20) == 0) { } // Open
           else { } // Close
-          goto LAB_0054af5f;
     }
 }
 
@@ -344,9 +362,9 @@ bool k_line_send_byte(const uint8_t send_byte, bool wait_echo_byte)
     uint8_t echo_byte = 0x00,
        bytes_read = 0;
 
-    for (uint8_t retry_count = 0; retry_count < KWP2000_ECHO_BYTE_RETRY_COUNT; retry_count++)
+    for (uint8_t retry_count = 0; retry_count < ISO9141_ECHO_BYTE_RETRY_COUNT; retry_count++)
     {
-       bytes_read = uart_read_bytes(UART_NUMBER, &echo_byte, 1, KWP2000_ECHO_BYTE_TIMEOUT_TICKS);
+       bytes_read = uart_read_bytes(UART_NUMBER, &echo_byte, 1, ISO9141_ECHO_BYTE_TIMEOUT_TICKS);
 
        if (bytes_read > 0 && echo_byte == ~send_byte)
           return true;
@@ -373,39 +391,51 @@ int k_line_read_bytes(uint8_t* bytes, int bytes_count, bool send_echo, TickType_
     return bytes_read;
 }
 
-bool ml41_send_packet(ml41_ecu_data* connection,const uint8_t* packet)
+bool ml41_send_request(uint8_t request_id)
 {
+    if (request_id > ECU_MAX_REQUEST) // invalid request id
+        return false;
+
+    uint8_t packet[8];
+
+    memcpy(&packet, ECU_REQUESTS[request_id], 8);
+
     const uint8_t packet_length = packet[0];
+
+    if (packet_length == 0)
+        return false;
 
     // Send packet length
     if (!k_line_send_byte(packet_length, true))
        return false;
 
     // Send packet sequence number
-    if (!k_line_send_byte(connection->packet_id++, true))
-       return false;
+    if (!k_line_send_byte(ecu_connection.packet_id++, true))
+        return false;
 
     // Send packet data
     // Skip first 2 bytes (length & packet id) and last byte (EOP)
     for (uint8_t i = 2; i < packet_length - 1; i++)
-       if (!k_line_send_byte(packet[i], true))
-          return false;
+        if (!k_line_send_byte(packet[i], true))
+            return false;
 
     // Send packet end mark 0x03 without waiting for echo
     k_line_send_byte(0x03, false);
 
+    ecu_connection.last_sent_packet_id = request_id;
+
     return true;
 }
 
-void send_nop_packet(ml41_ecu_data* connection)
+void send_nop_packet()
 {
-    ml41_send_packet(connection, no_data_cmd);
+    ml41_send_request(ECU_NO_DATA);
 }
 
 // will read packet and return it's data
-int ml41_recv_packet(ml41_ecu_data* connection, uint8_t * rx_buffer)
+int ml41_recv_packet(uint8_t * rx_buffer)
 {
-    connection->packet_id++;
+    ecu_connection.packet_id++;
 
     return 0;
 }
@@ -460,13 +490,13 @@ bool ml41_recv_keywords()
 {
     uint8_t rx_buffer[2];
 
-    if (2 > k_line_read_bytes(rx_buffer, 2, true, KWP2000_PACKET_RECV_TIMEOUT_TICKS))
+    if (2 > k_line_read_bytes(rx_buffer, 2, true, ISO9141_PACKET_RECV_TIMEOUT_TICKS))
        return false;
 
     return true;
 }
 
-void ml41_read_ecu_init_data(ml41_ecu_data* connection)
+void ml41_read_ecu_init_data()
 {
     // ECU EEPROM code
     // ml41_recv_packet();
@@ -476,7 +506,7 @@ void ml41_read_ecu_init_data(ml41_ecu_data* connection)
     // GM CODE + ALFA code
 }
 
-ml41_ecu_data* ml41_init_connection(void *)
+void ml41_init_connection(void *)
 {
     ml41_send_slow_init_wakeup();
 
@@ -484,14 +514,13 @@ ml41_ecu_data* ml41_init_connection(void *)
 
     ml41_recv_keywords();
 
-    ml41_read_ecu_init_data(&ml41_conn);
+    ml41_read_ecu_init_data();
 
     // Start ecu send/recv queue
     // xTaskCreate();
-    return &ml41_conn;
 
     // start ECU connection task
-    xTaskCreate(ml41_init_connection, "ml41_init_connection", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
+    // xTaskCreate(ml41_init_connection, "ml41_init_connection", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
 }
 
 void init(void)
