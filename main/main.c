@@ -17,20 +17,24 @@
 #define GPIO_LEVEL_HIGH 1
 #endif
 
-#define UART_NUMBER UART_NUM_0
-#define UART_RX_BUF_SIZE 255
-#define UART_TXD_PIN GPIO_NUM_1
-#define UART_RXD_PIN GPIO_NUM_3
+#define UART_NUMBER UART_NUM_2
+#define UART_RX_BUF_SIZE 1024
+#define UART_TXD_PIN GPIO_NUM_17
+#define UART_RXD_PIN GPIO_NUM_16
 #define UART_BAUD_RATE 8860
+#define UART_DEBUG_PIN GPIO_NUM_5
 
-#define ISO9141_ECHO_BYTE_TIMEOUT_TICKS (100 / portTICK_PERIOD_MS) // 100ms
+#define MS_TICKS(ms) (ms / portTICK_PERIOD_MS)
+
+#define ISO9141_ECHO_BYTE_TIMEOUT_TICKS (MS_TICKS(100)) // 100ms
 #define ISO9141_ECHO_BYTE_RETRY_COUNT 3
 #define ISO9141_INIT_ECU_DST_ADDRESS 0x10
-#define ISO9141_PACKET_RECV_TIMEOUT_TICKS (100 / portTICK_PERIOD_MS) // 100ms
+#define ISO9141_PACKET_RECV_TIMEOUT_TICKS (MS_TICKS(100)) // 100ms
 
-#define delay(ms) vTaskDelay(ms / portTICK_PERIOD_MS);
+#define delay(ms) vTaskDelay(MS_TICKS(ms));
 
 #define ECU_NO_DATA              0x00
+#define ECU_END_SESSION          0x01
 #define ECU_READ_EPROM           0x02
 #define ECU_GET_AFR              0x06
 #define ECU_GET_VBAT             0x07
@@ -73,9 +77,18 @@
 #define ECU_ERROR_CODE_74         74 // AFR high voltage
 #define ECU_ERROR_CODE_75         75 // Torque control low voltage
 
+#define ECU_ERROR_STATE_1              0x40 // 0100 0000
+#define ECU_ERROR_STATE_ACTIVE         0x60 // 0110 0000
+#define ECU_ERROR_STATE_PAST           0x0A // 1010 0000
+#define ECU_ERROR_STATE_ACTIVE_REPEAT  0xE0 // 1110 0000
+
+static const char* TAG = "esp-k-line";
+
+uint8_t ecu_recv_buffer[32];
+
 uint8_t const ECU_REQUESTS[][8] = {
    { 0x03, 0x00, 0x09, 0x03, 0x00, 0x00, 0x00, 0x00 }, // 0x00
-   { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x01
+   { 0x03, 0x00, 0x06, 0x03, 0x00, 0x00, 0x00, 0x00 }, // 0x01
    { 0x06, 0x00, 0x03, 0x0D, 0x00, 0x00, 0x03, 0x00 }, // 0x02
    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x03
    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x04
@@ -122,6 +135,7 @@ uint8_t const ECU_REQUESTS[][8] = {
    */
 };
 
+/*
 const short temperature_values_map[] = {
     197, 194, 191, 189, 186, 184, 181, 178, 
     176, 173, 171, 168, 165, 163, 160, 158, 
@@ -191,22 +205,7 @@ const short ignition_time_values_map[] = {
     -72, -72, -73, -74, -75, -75, -76, -77, 
     -78, -78, -79, -80, -81, -81, -82, -83,
 };
-
-#define EEPROME_CODE_SIZE 11
-#define BOSCH_CODE_SIZE 11
-#define GM_CODE_SIZE 8
-#define ALPHA_CODE_SIZE 3
-
-#define ECU_TYPE_ML41 0
-#define ECU_TYPE_ML15 1
-
-typedef struct ml41_ecu_data {
-    uint8_t ecu_type;
-    uint8_t eeprom_code[EEPROME_CODE_SIZE];
-    uint8_t bosch_code[BOSCH_CODE_SIZE];
-    uint8_t gm_code[GM_CODE_SIZE];
-    uint8_t alpha_code[ALPHA_CODE_SIZE];
-} ml41_ecu_data;
+*/
 
 struct iso9141_connection
 {
@@ -219,160 +218,192 @@ struct iso9141_connection ecu_connection = {
     .last_sent_packet_id = 0,
 };
 
-struct ml41_ecu_data ecu_data = {
-    .ecu_type = ECU_TYPE_ML41,
+typedef struct queue {
+   uint8_t items[256];
+   uint8_t read_idx;
+   uint8_t write_idx;
+   uint8_t size;
+} queue;
+
+queue ecu_request_queue = {
+   .items = { 0xFF },
+   .size = 0,
+   .read_idx = 0,
+   .write_idx = 0
 };
 
-void UpdateML41Parameters(uint8_t * ecu_response)
+bool ecu_request_queue_add(uint8_t ecu_request_id)
 {
-    /**
-    * ecu_response[0] - Request packet ID
-    * ecu_response[1] - first byte of ecu response
-    */
-    /* SendPacket ID */
-    switch(ecu_response[0]) {
-       /* AFR & COP  */
-       case 6:
-       case 0xc:
-          float value = ecu_response[5] * 5 / 256.f;
-          break;
-       /* Battery voltage */
-       case 7:
-          float value = 0.4 + ecu_response[5] / 15.0f;
-          break;
-       /* Coolant & Intake air temp */
-       /** 
-        * Temperature calculation example
-        * ecu_response[5] = 0xEE
-        * SYMBOLS_ARRAY = 0x554910
-        * ecu_response[5] * 0x04 + SYMBOLS_ARRAY = 0x554cc8
-        * [0x554cc8] = 0xFFFFFFEF = -17
-       */
-       case 8:
-       case 9:
-          result = TEMP_VALUES_ARRAY[ecu_response[5]];
-          break;
-       /* Lambda */
-       case 0xd:
-          result = ecu_response[5] * 4.87;
-          break;
-       /* Ignition time */
-       case 0xf:
-          local_c = ignition_time_values_map[ecu_response[4]];
-          break;
-       /* Engine RPM */
-       /**
-        * ecu_reponse[4] = 0xFF
-        * ecu_response[4] << 3 = 0x07f8
-        * result = (ecu_response[4] << 3) + ((ecu_response[4] << 3) * 4)
-        * result = ecu_response[4] * 0x28 = 10200 rpm
-       */
-       case 0x12:
-          local_14 = ecu_response[4] * 0x28;
-          break;
-       /* TPS */
-       case 0x13:
-          /**
-           * 0x12 - IDLE (ecu_response[4] & 3 == 2)
-           * 0x10 - MID (ecu_response[4] & 3 == 0)
-           * 0x11 - FULL (ecu_response[4] & 3 == 1)
-           * ERR (ecu_response[4] & 3 == 3)
-          */
-          // bVar5 = (ecu_response[4]) & 3;
-          // if (bVar5 == 0) { } // MID
-          // else if (bVar5 == 1) { } // FULL
-          // else if (bVar5 == 2) { } // IDLE
-          // else if (bVar5 == 3) { } // ERR
+   if (ecu_request_queue.size >= 255)
+      return false; // queue full
 
-          /* Transmission type */
-          if (((ecu_response[4]) & 4) == 0) { } // Manual
-          else { } // Auto
+   ecu_request_queue.items[ecu_request_queue.write_idx++] = ecu_request_id;
 
-          /* O2 Sensor */
-          if (((ecu_response[4]) & 0x20) == 0) { } // Present
-          else { } // Absent
-          break;
-       /* Engine Load */
-       case 0x14:
-          local_c = (0.05f * ecu_response[4]);
-          break;
-       /* InjectionTime */
-       case 0x15:
-          time = (0.3f * (((ecu_response[4]) * -0x100 + 0xffff) - ecu_response[5]) / 250.f);
-          break;
-       /* AC drive & switch */
-       case 0x19:
-          /* edACDrive */
-          if (((ecu_response[4]) & 8) == 0) { } // Off
-          else { } // On
-
-          /* edACSwitch */
-          if (((ecu_response[4]) & 0x10) == 0) { } // Off
-          else { } // On
-       /* O2 Sensor regulation */
-       case 0x1a:
-          if (hasO2Sensor) {
-             if (((ecu_response[4]) & 0x20) == 0) { } // Open
-             else { } // Close
-          } else { } // Absent
-       /* Fuel pump relay & engine torque control */
-       case 0x1b:
-          /* Fuel pump relay state */
-          if (((ecu_response[4]) & 4) == 0) { } // On
-          else { } // Off
-
-          /* Engine torque control */
-          if (((ecu_response[4]) & 0x20) == 0) { } // On
-          else { } // Off
-       /* Adsorber valve state*/
-       case 0x1c:
-          if (((ecu_response[4]) & 0x20) == 0) { } // Open
-          else { } // Close
-    }
+   return true;
 }
 
-void process_ecu_response(uint8_t * ecu_response)
+uint8_t ecu_request_queue_get()
 {
-    switch(ecu_response[3]) {
-       case 0xee:
-       case 0xf4:
-       UpdateML15Parameters(ecu_response);
-       break;
-       case 0xf6:
-       UpdateMainForm(ecu_response);
-       break;
-       case 0xfb:
-       UpdateML41Parameters(ecu_response);
-       break;
-       case 0xfc:
-       ListErrors(ecu_response);
-       break;
-       case 0xfd:
-       UpdateEPROMReadProgress(ecu_response,-1);
-       break;
-       case 0xfe:
-       if ((ecu_response[0] == '\x0f') || ((ecu_response[0] - 0x12U) < 4)) {
-          UpdateML41Parameters(ecu_response);
-       } else if (ecu_response[0] == '\x18') {
-          UpdateFuelPumpStatus(ecu_response);
-       } else if ((ecu_response[0]  - 0x19U) < 4)
-          UpdateML41Parameters(ecu_response);
-    }
+   if (ecu_request_queue.size == 0)
+      return 0xFF; // queue empty
 
-    // clear ecu response
-    for (size_t i = 1; i < 24; i++)
-       ecu_response[i] = 0;
-    /* iVar1 = 0;
-    do {
-     *(undefined *)(ecu_response + iVar1 + 0x45) = 0;
-     iVar1 = iVar1 + 1;
-    } while (iVar1 != 0x24); */
+   ecu_request_queue.size--;
+
+   return ecu_request_queue.items[ecu_request_queue.read_idx++];
 }
+
+// void UpdateML41Parameters(uint8_t * ecu_response)
+// {
+//     /**
+//     * ecu_response[0] - Request packet ID
+//     * ecu_response[1] - first byte of ecu response
+//     */
+//     /* SendPacket ID */
+//     switch(ecu_response[0]) {
+//        /* AFR & COP  */
+//        case 6:
+//        case 0xc:
+//           float value = ecu_response[5] * 5 / 256.f;
+//           break;
+//        /* Battery voltage */
+//        case 7:
+//           float value = 0.4 + ecu_response[5] / 15.0f;
+//           break;
+//        /* Coolant & Intake air temp */
+//        /** 
+//         * Temperature calculation example
+//         * ecu_response[5] = 0xEE
+//         * SYMBOLS_ARRAY = 0x554910
+//         * ecu_response[5] * 0x04 + SYMBOLS_ARRAY = 0x554cc8
+//         * [0x554cc8] = 0xFFFFFFEF = -17
+//        */
+//        case 8:
+//        case 9:
+//           result = TEMP_VALUES_ARRAY[ecu_response[5]];
+//           break;
+//        /* Lambda */
+//        case 0xd:
+//           result = ecu_response[5] * 4.87;
+//           break;
+//        /* Ignition time */
+//        case 0xf:
+//           local_c = ignition_time_values_map[ecu_response[4]];
+//           break;
+//        /* Engine RPM */
+//        /**
+//         * ecu_reponse[4] = 0xFF
+//         * ecu_response[4] << 3 = 0x07f8
+//         * result = (ecu_response[4] << 3) + ((ecu_response[4] << 3) * 4)
+//         * result = ecu_response[4] * 0x28 = 10200 rpm
+//        */
+//        case 0x12:
+//           local_14 = ecu_response[4] * 0x28;
+//           break;
+//        /* TPS */
+//        case 0x13:
+//           /**
+//            * 0x12 - IDLE (ecu_response[4] & 3 == 2)
+//            * 0x10 - MID (ecu_response[4] & 3 == 0)
+//            * 0x11 - FULL (ecu_response[4] & 3 == 1)
+//            * ERR (ecu_response[4] & 3 == 3)
+//           */
+//           // bVar5 = (ecu_response[4]) & 3;
+//           // if (bVar5 == 0) { } // MID
+//           // else if (bVar5 == 1) { } // FULL
+//           // else if (bVar5 == 2) { } // IDLE
+//           // else if (bVar5 == 3) { } // ERR
+
+//           /* Transmission type */
+//           if (((ecu_response[4]) & 4) == 0) { } // Manual
+//           else { } // Auto
+
+//           /* O2 Sensor */
+//           if (((ecu_response[4]) & 0x20) == 0) { } // Present
+//           else { } // Absent
+//           break;
+//        /* Engine Load */
+//        case 0x14:
+//           local_c = (0.05f * ecu_response[4]);
+//           break;
+//        /* InjectionTime */
+//        case 0x15:
+//           time = (0.3f * (((ecu_response[4]) * -0x100 + 0xffff) - ecu_response[5]) / 250.f);
+//           break;
+//        /* AC drive & switch */
+//        case 0x19:
+//           /* edACDrive */
+//           if (((ecu_response[4]) & 8) == 0) { } // Off
+//           else { } // On
+
+//           /* edACSwitch */
+//           if (((ecu_response[4]) & 0x10) == 0) { } // Off
+//           else { } // On
+//        /* O2 Sensor regulation */
+//        case 0x1a:
+//           if (hasO2Sensor) {
+//              if (((ecu_response[4]) & 0x20) == 0) { } // Open
+//              else { } // Close
+//           } else { } // Absent
+//        /* Fuel pump relay & engine torque control */
+//        case 0x1b:
+//           /* Fuel pump relay state */
+//           if (((ecu_response[4]) & 4) == 0) { } // On
+//           else { } // Off
+
+//           /* Engine torque control */
+//           if (((ecu_response[4]) & 0x20) == 0) { } // On
+//           else { } // Off
+//        /* Adsorber valve state*/
+//        case 0x1c:
+//           if (((ecu_response[4]) & 0x20) == 0) { } // Open
+//           else { } // Close
+//     }
+// }
+
+// void process_ecu_response(uint8_t * ecu_response)
+// {
+//     switch(ecu_response[3]) {
+//        case 0xee:
+//        case 0xf4:
+//        UpdateML15Parameters(ecu_response);
+//        break;
+//        case 0xf6:
+//        UpdateMainForm(ecu_response);
+//        break;
+//        case 0xfb:
+//        UpdateML41Parameters(ecu_response);
+//        break;
+//        case 0xfc:
+//        ListErrors(ecu_response);
+//        break;
+//        case 0xfd:
+//        UpdateEPROMReadProgress(ecu_response,-1);
+//        break;
+//        case 0xfe:
+//        if ((ecu_response[0] == '\x0f') || ((ecu_response[0] - 0x12U) < 4)) {
+//           UpdateML41Parameters(ecu_response);
+//        } else if (ecu_response[0] == '\x18') {
+//           UpdateFuelPumpStatus(ecu_response);
+//        } else if ((ecu_response[0]  - 0x19U) < 4)
+//           UpdateML41Parameters(ecu_response);
+//     }
+
+//     // clear ecu response
+//     for (size_t i = 1; i < 24; i++)
+//        ecu_response[i] = 0;
+//     /* iVar1 = 0;
+//     do {
+//      *(undefined *)(ecu_response + iVar1 + 0x45) = 0;
+//      iVar1 = iVar1 + 1;
+//     } while (iVar1 != 0x24); */
+// }
 
 bool k_line_send_byte(const uint8_t send_byte, bool wait_echo_byte)
 {
     uart_disable_rx_intr(UART_NUMBER);
     uart_write_bytes(UART_NUMBER, &send_byte, 1);
+    uart_wait_tx_done(UART_NUMBER, MS_TICKS(10));
+    uart_flush(UART_NUMBER);
     uart_enable_rx_intr(UART_NUMBER);
 
     if (!wait_echo_byte)
@@ -392,19 +423,17 @@ bool k_line_send_byte(const uint8_t send_byte, bool wait_echo_byte)
     return false;
 }
 
-int k_line_read_bytes(uint8_t* bytes, int bytes_count, bool send_echo, TickType_t read_timeout)
+uint8_t k_line_read_bytes(uint8_t* bytes, uint8_t bytes_count, TickType_t read_timeout)
 {
-    uint8_t bytes_read = 0,
-       last_byte = 0;
+    uint8_t bytes_read = 0;
+    uint8_t* last_byte_ptr = bytes;
 
     do {
-       if (0 >= uart_read_bytes(UART_NUMBER, &last_byte, 1, read_timeout))
-          return bytes_read; // no byte received
+        if (0 >= uart_read_bytes(UART_NUMBER, last_byte_ptr, 1, read_timeout))
+            return bytes_read; // no byte received
 
-       bytes[bytes_read] = last_byte;
-
-       if (bytes_read + 1 < bytes_count) // Send echo for all except last one
-          k_line_send_byte(~last_byte, false);
+        if (bytes_read + 1 < bytes_count) // Send echo for all except last one
+            k_line_send_byte(~(*last_byte_ptr), false);
     } while (++bytes_read < bytes_count);
 
     return bytes_read;
@@ -426,7 +455,7 @@ bool ml41_send_request(uint8_t request_id)
 
     // Send packet length
     if (!k_line_send_byte(packet_length, true))
-       return false;
+        return false;
 
     // Send packet sequence number
     if (!k_line_send_byte(ecu_connection.packet_id++, true))
@@ -452,9 +481,11 @@ void send_nop_packet()
 }
 
 // will read packet and return it's data
-int ml41_recv_packet(uint8_t * rx_buffer)
+uint8_t ml41_recv_packet()
 {
-    ecu_connection.packet_id++;
+    // k_line_read_bytes()
+    // ecu_recv_buffer
+    // ecu_connection.packet_id++;
 
     return 0;
 }
@@ -468,7 +499,7 @@ void ml41_send_slow_init_wakeup()
 
     gpio_set_level(UART_TXD_PIN, GPIO_LEVEL_LOW);
 
-    delay(1200);
+    delay(1000);
 
     gpio_set_level(UART_TXD_PIN, GPIO_LEVEL_HIGH);
 
@@ -492,64 +523,152 @@ bool ml41_start_full_speed()
        .source_clk = UART_SCLK_DEFAULT,
     };
 
-    // We won't use a buffer for sending data.
-    uart_driver_install(UART_NUMBER, UART_RX_BUF_SIZE, 0, 0, NULL, 0);
+    uart_driver_install(UART_NUMBER, UART_RX_BUF_SIZE * 2, 0, 0, NULL, 0);
     uart_param_config(UART_NUMBER, &uart_config);
+    uart_set_rx_full_threshold(UART_NUMBER, 1);
     uart_set_pin(UART_NUMBER, UART_TXD_PIN, UART_RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 
+    ESP_LOGI(TAG, "UART configured");
+
+    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
     uint8_t rx_byte;
 
-    if (0 < k_line_read_bytes(&rx_byte, 1, false, 1000 / portTICK_PERIOD_MS) && rx_byte == 0x55)
-       return false;
+    int bytes_read = uart_read_bytes(UART_NUMBER, &rx_byte, 1, MS_TICKS(1000));
+    ESP_LOGI(TAG, "Bytes read: %d Byte value: %#02x\n", bytes_read, rx_byte);
+    if (0 < bytes_read && rx_byte == 0x55)
+    {
+        gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+        return true;
+    }
 
-    return true;
+    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+
+    return false;
 }
 
 bool ml41_recv_keywords()
 {
-    uint8_t rx_buffer[2];
+    uint8_t rx_byte;
 
-    if (2 > k_line_read_bytes(rx_buffer, 2, true, ISO9141_PACKET_RECV_TIMEOUT_TICKS))
-       return false;
+    uint8_t rx_buff[2];
+
+    while (true)
+    {
+        gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
+
+        int bytes_read = uart_read_bytes(UART_NUMBER, rx_buff, 1, MS_TICKS(100));
+
+        gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+
+        if (bytes_read < 1)
+        {
+            delay(1);
+            continue;
+        }
+
+        k_line_send_byte(~rx_buff[0], false);
+    }
+
+    // k_line_send_byte(~rx_buff[1], false);
+
+    // while (1 > uart_read_bytes(UART_NUMBER, &rx_byte, 2, MS_TICKS(10)) && read_try_count < 10)
+    // {
+    //     read_try_count++;
+    //     // gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+    //     // return false;
+    // }
+
+    // if (read_try_count == 10) return false;
+
+    // k_line_send_byte(~rx_byte, false);
+
+    // while (1 > uart_read_bytes(UART_NUMBER, &rx_byte, 2, MS_TICKS(10)) && read_try_count < 10)
+    // {
+    //     read_try_count++;
+    //     // gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+    //     // return false;
+    // }
+
+    // if (read_try_count == 10) return false;
+
+    // while (1 > uart_read_bytes(UART_NUMBER, &rx_byte, 1, MS_TICKS(10)))
+    // {
+    //     gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+    //     return false;
+    // }
+
+    // k_line_send_byte(~rx_byte, false);
 
     return true;
 }
 
-void ml41_read_ecu_init_data()
+bool ml41_read_ecu_init_data()
 {
-    // ECU EEPROM code
-    // ml41_recv_packet();
+    // ECU EPROM code
+    if (ml41_recv_packet() <= 0)
+    {
+        // ESP_LOGI(TAG, "EEPROM code read error");
+
+        return false;
+    }
 
     // ECU BOSCH code
 
     // GM CODE + ALFA code
+
+    return true;
 }
 
 void ml41_init_connection(void *)
 {
+    ESP_LOGI(TAG, "Start slow init");
     ml41_send_slow_init_wakeup();
 
-    if (!ml41_start_full_speed());
+    ESP_LOGI(TAG, "Start full speed UART");
+    if (!ml41_start_full_speed())
+    {
+        ESP_LOGI(TAG, "ECU connection error: no sync received");
 
-    ml41_recv_keywords();
+        delay(5000);
 
-    ml41_read_ecu_init_data();
+        return;
+    }
+
+    ESP_LOGI(TAG, "Sync received");
+
+    if (!ml41_recv_keywords())
+    {
+        // ESP_LOGI(TAG, "ECU connection error: no KW received");
+        
+        delay(5000);
+        return;
+    }
+
+    // ESP_LOGI(TAG, "KW received");
+
+    if (!ml41_read_ecu_init_data())
+    {
+        // ESP_LOGI(TAG, "ECU init data read error");
+        
+        delay(5000);
+        return;
+    }
 
     // Start ecu send/recv queue
     // xTaskCreate();
-
-    // start ECU connection task
-    // xTaskCreate(ml41_init_connection, "ml41_init_connection", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
-}
-
-void init(void)
-{
-    // wait 5 seconds
-    delay(5000);
-
 }
 
 void app_main(void)
 {
-    init();
+    delay(2000);
+    gpio_reset_pin(UART_DEBUG_PIN);
+
+    gpio_set_direction(UART_DEBUG_PIN, GPIO_MODE_OUTPUT);
+
+    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+
+    // ml41_start_full_speed();
+    // xTaskCreate(ml41_start_full_speed, "ml41_start_full_speed", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
+   // start ECU connection task
+   xTaskCreate(ml41_init_connection, "ml41_init_connection", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
 }
