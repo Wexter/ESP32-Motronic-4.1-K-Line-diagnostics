@@ -54,6 +54,25 @@
 #define ECU_ENABLE_IDLE_VALVE    0x1F
 #define ECU_MAX_REQUEST          0x1F
 
+#define ECU_ERROR_CODE_13         13 // O2 sensor slow signal change
+#define ECU_ERROR_CODE_14         14 // Coolant temp sensor low voltage (Temp > 140 C)
+#define ECU_ERROR_CODE_15         15 // Coolant temp sensor high voltage (Temp < -35.4 C & Intake temp < -20)
+#define ECU_ERROR_CODE_44         44 // O2 sensor low voltage (<0.09V)
+#define ECU_ERROR_CODE_45         45 // O2 sensor high voltage (>1.099V)
+#define ECU_ERROR_CODE_48         48 // ECU low input voltage (<10V)
+#define ECU_ERROR_CODE_49         49 // ECU high input voltage (>16V)
+#define ECU_ERROR_CODE_51         51 // ECU mailfunction.
+#define ECU_ERROR_CODE_55         55 // ECU mailfunction.
+#define ECU_ERROR_CODE_65         65 // AFR CO pot low voltage
+#define ECU_ERROR_CODE_66         66 // AFR CO pot high voltage
+#define ECU_ERROR_CODE_67         67 // TPS idle position stuck
+#define ECU_ERROR_CODE_69         69 // Intake air temp high voltage (Temp > 140 C)
+#define ECU_ERROR_CODE_71         71 // Intake air temp low voltage (Temp < 35 C)
+#define ECU_ERROR_CODE_72         72 // TPS kick-down position stuck
+#define ECU_ERROR_CODE_73         73 // AFR low voltage
+#define ECU_ERROR_CODE_74         74 // AFR high voltage
+#define ECU_ERROR_CODE_75         75 // Torque control low voltage
+
 uint8_t const ECU_REQUESTS[][8] = {
    { 0x03, 0x00, 0x09, 0x03, 0x00, 0x00, 0x00, 0x00 }, // 0x00
    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // 0x01
