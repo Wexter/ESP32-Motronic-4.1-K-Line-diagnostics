@@ -122,7 +122,7 @@ uint8_t const ECU_REQUESTS[][8] = {
    */
 };
 
-const int temperature_values_map[] = {
+const short temperature_values_map[] = {
     197, 194, 191, 189, 186, 184, 181, 178, 
     176, 173, 171, 168, 165, 163, 160, 158, 
     155, 152, 150, 147, 145, 142, 139, 137, 
@@ -157,7 +157,7 @@ const int temperature_values_map[] = {
     -29, -30, -32, -33, -34, -36, -37, -38, 
 };
 
-const int ignition_time_values_map[] = {
+const short ignition_time_values_map[] = {
     10, 108, 107, 106, 105, 105, 104, 103, 
     102, 102, 101, 100, 99, 99, 98, 97, 
     96, 96, 95, 94, 93, 93, 92, 91, 
