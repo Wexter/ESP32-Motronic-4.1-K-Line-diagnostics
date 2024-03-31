@@ -9,6 +9,8 @@
 #include "string.h"
 #include "driver/gpio.h"
 
+#define K_LINE_DUMP_PACKETS
+
 #ifndef GPIO_LEVEL_LOW
 #define GPIO_LEVEL_LOW 0
 #endif
@@ -234,6 +236,7 @@ queue ecu_request_queue = {
 
 bool k_line_send_byte(const uint8_t send_byte, bool wait_echo_byte);
 uint8_t k_line_read_byte(uint8_t* buffer, TickType_t read_timeout, bool send_echo);
+void ml41_dump_packet(uint8_t * packet);
 
 bool ecu_request_queue_add(uint8_t ecu_request_id)
 {
@@ -455,6 +458,11 @@ bool ml41_send_request(uint8_t request_id)
 
     packet[1] = ++ecu_connection.packet_id;
 
+#ifdef K_LINE_DUMP_PACKETS
+    ESP_LOGI(TAG, "Sending packet length: %d bytes", packet[0]);
+    ml41_dump_packet(packet);
+#endif
+
     // Send packet data
     for (uint8_t idx = 0; idx <= packet_length; idx++)
         if (!k_line_send_byte(packet[idx], idx < packet_length))
@@ -480,13 +488,15 @@ uint8_t ml41_recv_packet(uint8_t* buffer)
 
     for (uint8_t idx = 1; idx <= buffer[0]; idx++)
     {
-        // ESP_LOGI(TAG, "ml41_recv_packet: reading byte %d of %d. send_echo: %d. Buffer addr: 0x%#08x", idx, buffer[0], idx != buffer[0], (unsigned int) (buffer + idx));
-
         if (1 > k_line_read_byte(buffer + idx, MS_TICKS(100), idx != buffer[0]))
         {
             return 0;
         }
     }
+
+#ifdef K_LINE_DUMP_PACKETS
+    ml41_dump_packet(buffer);
+#endif
 
     ecu_connection.packet_id++;
 
@@ -555,6 +565,19 @@ bool ml41_recv_keywords()
         return false;
 
     return true;
+}
+
+void ml41_dump_packet(uint8_t* packet)
+{
+    char packet_str[64] = { 0 };
+
+    uint8_t packet_length = packet[0];
+
+    for (uint8_t idx = 0; idx <= packet_length; idx++)
+        sprintf(packet_str + idx * 3, "%02X ", packet[idx]);
+        // ESP_LOGI(TAG, "%02X", packet[idx]);
+
+    ESP_LOGI(TAG, "Packet: %s", packet_str);
 }
 
 bool ml41_read_ecu_init_data()
