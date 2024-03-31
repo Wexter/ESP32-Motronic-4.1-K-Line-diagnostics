@@ -416,7 +416,7 @@ bool k_line_send_byte(const uint8_t send_byte, bool wait_echo_byte)
         if (!wait_echo_byte)
             return true;
 
-        if (1 > k_line_read_byte(&echo_byte, MS_TICKS(10), false))
+        if (1 > k_line_read_byte(&echo_byte, MS_TICKS(20), false))
             continue;
 
         if (echo_byte + send_byte == 0xFF)
