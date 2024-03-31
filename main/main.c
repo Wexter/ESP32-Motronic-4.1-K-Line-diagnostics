@@ -707,5 +707,5 @@ void app_main(void)
     // ml41_start_full_speed();
     // xTaskCreate(ml41_start_full_speed, "ml41_start_full_speed", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
    // start ECU connection task
-   xTaskCreate(ml41_init_connection, "ml41_init_connection", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
+   xTaskCreate(ml41_init_connection, "ml41_init_connection", 16384, NULL, configMAX_PRIORITIES - 2, NULL);
 }
