@@ -434,7 +434,9 @@ uint8_t k_line_read_byte(uint8_t* buffer, TickType_t read_timeout, bool send_ech
     uint8_t* last_byte_ptr = buffer;
 
     if (1 > uart_read_bytes(UART_NUMBER, last_byte_ptr, 1, read_timeout))
+    {
         return 0; // no byte received
+    }
 
     if (send_echo) // Send echo for all except last one
         k_line_send_byte(~(*last_byte_ptr), false);
@@ -629,8 +631,8 @@ bool ml41_read_ecu_init_data()
 
     ESP_LOGI(TAG, "GM CODE code: %s", rx_buff + 3);
 
-    /*while (true) {
-        delay(15);
+    while (true) {
+        delay(50);
 
         ml41_send_request(ECU_NO_DATA);
 
@@ -640,7 +642,147 @@ bool ml41_read_ecu_init_data()
 
             return false;
         }
-    }*/
+        delay(50);
+        ml41_send_request(ECU_GET_AFR);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_VBAT);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_INT_AIR_TEMP);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_COOLANT_TEMP);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_ERASE_ERR_CODES);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_CO_POT);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_O2_SENSOR);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_IGN_TIME);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        // delay(50);
+        // ml41_send_request(ECU_GET_ERROR_CODES);
+        //         if (1 > ml41_recv_packet(rx_buff))
+        // {
+        //     ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+        //     return false;
+        // }
+        delay(50);
+        ml41_send_request(ECU_GET_RPM);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_TPS);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_ENG_LOAD);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_INJ_TIME);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_AC_DRV_SW);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_O2_REG);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_FPUMP_RELAY);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+        delay(50);
+        ml41_send_request(ECU_GET_ADSORBER_VALVE);
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+
+        UBaseType_t uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
+
+        ESP_LOGI(TAG, "Task stack high water mark: %d", uxHighWaterMark);
+    }
 
     delay(15);
 
