@@ -533,17 +533,13 @@ bool ml41_start_full_speed()
 
     ESP_LOGI(TAG, "UART configured");
 
-    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
     uint8_t rx_byte;
 
     int bytes_read = uart_read_bytes(UART_NUMBER, &rx_byte, 1, MS_TICKS(1000));
     if (0 < bytes_read && rx_byte == 0x55)
     {
-        gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
         return true;
     }
-
-    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
 
     return false;
 }
