@@ -232,6 +232,9 @@ queue ecu_request_queue = {
    .write_idx = 0
 };
 
+bool k_line_send_byte(const uint8_t send_byte, bool wait_echo_byte);
+uint8_t k_line_read_byte(uint8_t* buffer, TickType_t read_timeout, bool send_echo);
+
 bool ecu_request_queue_add(uint8_t ecu_request_id)
 {
    if (ecu_request_queue.size >= 255)
@@ -377,7 +380,7 @@ uint8_t ecu_request_queue_get()
 //        ListErrors(ecu_response);
 //        break;
 //        case 0xfd:
-//        UpdateEPROMReadProgress(ecu_response,-1);
+//        pdateEPROMReadProgress(ecu_response,-1);
 //        break;
 //        case 0xfe:
 //        if ((ecu_response[0] == '\x0f') || ((ecu_response[0] - 0x12U) < 4)) {
@@ -400,43 +403,40 @@ uint8_t ecu_request_queue_get()
 
 bool k_line_send_byte(const uint8_t send_byte, bool wait_echo_byte)
 {
-    uart_disable_rx_intr(UART_NUMBER);
-    uart_write_bytes(UART_NUMBER, &send_byte, 1);
-    uart_wait_tx_done(UART_NUMBER, MS_TICKS(10));
-    uart_flush(UART_NUMBER);
-    uart_enable_rx_intr(UART_NUMBER);
-
-    if (!wait_echo_byte)
-       return true;
-
-    uint8_t echo_byte = 0x00,
-       bytes_read = 0;
+    uint8_t echo_byte = 0x00;
 
     for (uint8_t retry_count = 0; retry_count < ISO9141_ECHO_BYTE_RETRY_COUNT; retry_count++)
     {
-       bytes_read = uart_read_bytes(UART_NUMBER, &echo_byte, 1, ISO9141_ECHO_BYTE_TIMEOUT_TICKS);
+        uart_disable_rx_intr(UART_NUMBER);
+        uart_write_bytes(UART_NUMBER, &send_byte, 1);
+        uart_wait_tx_done(UART_NUMBER, MS_TICKS(10));
+        uart_flush(UART_NUMBER);
+        uart_enable_rx_intr(UART_NUMBER);
 
-       if (bytes_read > 0 && echo_byte == ~send_byte)
-          return true;
+        if (!wait_echo_byte)
+            return true;
+
+        if (1 > k_line_read_byte(&echo_byte, MS_TICKS(10), false))
+            continue;
+
+        if (echo_byte + send_byte == 0xFF)
+            return true;
     }
 
     return false;
 }
 
-uint8_t k_line_read_bytes(uint8_t* bytes, uint8_t bytes_count, TickType_t read_timeout)
+uint8_t k_line_read_byte(uint8_t* buffer, TickType_t read_timeout, bool send_echo)
 {
-    uint8_t bytes_read = 0;
-    uint8_t* last_byte_ptr = bytes;
+    uint8_t* last_byte_ptr = buffer;
 
-    do {
-        if (0 >= uart_read_bytes(UART_NUMBER, last_byte_ptr, 1, read_timeout))
-            return bytes_read; // no byte received
+    if (1 > uart_read_bytes(UART_NUMBER, last_byte_ptr, 1, read_timeout))
+        return 0; // no byte received
 
-        if (bytes_read + 1 < bytes_count) // Send echo for all except last one
-            k_line_send_byte(~(*last_byte_ptr), false);
-    } while (++bytes_read < bytes_count);
+    if (send_echo) // Send echo for all except last one
+        k_line_send_byte(~(*last_byte_ptr), false);
 
-    return bytes_read;
+    return 1;
 }
 
 bool ml41_send_request(uint8_t request_id)
@@ -453,22 +453,12 @@ bool ml41_send_request(uint8_t request_id)
     if (packet_length == 0)
         return false;
 
-    // Send packet length
-    if (!k_line_send_byte(packet_length, true))
-        return false;
-
-    // Send packet sequence number
-    if (!k_line_send_byte(ecu_connection.packet_id++, true))
-        return false;
+    packet[1] = ++ecu_connection.packet_id;
 
     // Send packet data
-    // Skip first 2 bytes (length & packet id) and last byte (EOP)
-    for (uint8_t i = 2; i < packet_length - 1; i++)
-        if (!k_line_send_byte(packet[i], true))
+    for (uint8_t idx = 0; idx <= packet_length; idx++)
+        if (!k_line_send_byte(packet[idx], idx < packet_length))
             return false;
-
-    // Send packet end mark 0x03 without waiting for echo
-    k_line_send_byte(0x03, false);
 
     ecu_connection.last_sent_packet_id = request_id;
 
@@ -481,13 +471,26 @@ void send_nop_packet()
 }
 
 // will read packet and return it's data
-uint8_t ml41_recv_packet()
+uint8_t ml41_recv_packet(uint8_t* buffer)
 {
-    // k_line_read_bytes()
-    // ecu_recv_buffer
-    // ecu_connection.packet_id++;
+    if (1 > k_line_read_byte(buffer, MS_TICKS(100), true))
+        return 0;
 
-    return 0;
+    ESP_LOGI(TAG, "Incoming packet length: %d bytes", (int) buffer[0]);
+
+    for (uint8_t idx = 1; idx <= buffer[0]; idx++)
+    {
+        // ESP_LOGI(TAG, "ml41_recv_packet: reading byte %d of %d. send_echo: %d. Buffer addr: 0x%#08x", idx, buffer[0], idx != buffer[0], (unsigned int) (buffer + idx));
+
+        if (1 > k_line_read_byte(buffer + idx, MS_TICKS(100), idx != buffer[0]))
+        {
+            return 0;
+        }
+    }
+
+    ecu_connection.packet_id++;
+
+    return buffer[0];
 }
 
 void ml41_send_slow_init_wakeup()
@@ -530,18 +533,17 @@ bool ml41_start_full_speed()
 
     ESP_LOGI(TAG, "UART configured");
 
-    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
+    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
     uint8_t rx_byte;
 
     int bytes_read = uart_read_bytes(UART_NUMBER, &rx_byte, 1, MS_TICKS(1000));
-    ESP_LOGI(TAG, "Bytes read: %d Byte value: %#02x\n", bytes_read, rx_byte);
     if (0 < bytes_read && rx_byte == 0x55)
     {
-        gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+        gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
         return true;
     }
 
-    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
 
     return false;
 }
@@ -550,71 +552,87 @@ bool ml41_recv_keywords()
 {
     uint8_t rx_byte;
 
-    uint8_t rx_buff[2];
+    if (1 > k_line_read_byte(&rx_byte, MS_TICKS(100), true))
+        return false;
 
-    while (true)
-    {
-        gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
-
-        int bytes_read = uart_read_bytes(UART_NUMBER, rx_buff, 1, MS_TICKS(100));
-
-        gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
-
-        if (bytes_read < 1)
-        {
-            delay(1);
-            continue;
-        }
-
-        k_line_send_byte(~rx_buff[0], false);
-    }
-
-    // k_line_send_byte(~rx_buff[1], false);
-
-    // while (1 > uart_read_bytes(UART_NUMBER, &rx_byte, 2, MS_TICKS(10)) && read_try_count < 10)
-    // {
-    //     read_try_count++;
-    //     // gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
-    //     // return false;
-    // }
-
-    // if (read_try_count == 10) return false;
-
-    // k_line_send_byte(~rx_byte, false);
-
-    // while (1 > uart_read_bytes(UART_NUMBER, &rx_byte, 2, MS_TICKS(10)) && read_try_count < 10)
-    // {
-    //     read_try_count++;
-    //     // gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
-    //     // return false;
-    // }
-
-    // if (read_try_count == 10) return false;
-
-    // while (1 > uart_read_bytes(UART_NUMBER, &rx_byte, 1, MS_TICKS(10)))
-    // {
-    //     gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
-    //     return false;
-    // }
-
-    // k_line_send_byte(~rx_byte, false);
+    if (1 > k_line_read_byte(&rx_byte, MS_TICKS(100), true))
+        return false;
 
     return true;
 }
 
 bool ml41_read_ecu_init_data()
 {
+    uint8_t rx_buff[24] = { 0 };
+
     // ECU EPROM code
-    if (ml41_recv_packet() <= 0)
+    if (1 > ml41_recv_packet(rx_buff))
     {
-        // ESP_LOGI(TAG, "EEPROM code read error");
+        ESP_LOGI(TAG, "EPROM code read error");
 
         return false;
     }
 
+    rx_buff[rx_buff[0]] = '\x0';
+
+    ESP_LOGI(TAG, "EPROM code: %s", rx_buff + 3);
+
+    delay(15);
+
+    ml41_send_request(ECU_NO_DATA);
+
     // ECU BOSCH code
+    if (1 > ml41_recv_packet(rx_buff))
+    {
+        ESP_LOGI(TAG, "BOSCH code read error");
+
+        return false;
+    }
+
+    rx_buff[rx_buff[0]] = '\x0';
+
+    ESP_LOGI(TAG, "BOSCH code: %s", rx_buff + 3);
+
+    delay(15);
 
     // GM CODE + ALFA code
+    ml41_send_request(ECU_NO_DATA);
+
+    // ECU BOSCH code
+    if (1 > ml41_recv_packet(rx_buff))
+    {
+        ESP_LOGI(TAG, "GM CODE code read error");
+
+        return false;
+    }
+
+    rx_buff[rx_buff[0]] = '\x0';
+
+    ESP_LOGI(TAG, "GM CODE code: %s", rx_buff + 3);
+
+    /*while (true) {
+        delay(15);
+
+        ml41_send_request(ECU_NO_DATA);
+
+        if (1 > ml41_recv_packet(rx_buff))
+        {
+            ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+            return false;
+        }
+    }*/
+
+    delay(15);
+
+    ml41_send_request(ECU_END_SESSION);
+
+    if (1 > ml41_recv_packet(rx_buff))
+    {
+        ESP_LOGI(TAG, "ml41_recv_packet failed");
+
+        return false;
+    }
 
     return true;
 }
@@ -638,7 +656,7 @@ void ml41_init_connection(void *)
 
     if (!ml41_recv_keywords())
     {
-        // ESP_LOGI(TAG, "ECU connection error: no KW received");
+        ESP_LOGI(TAG, "ECU connection error: no KW received");
         
         delay(5000);
         return;
@@ -665,7 +683,7 @@ void app_main(void)
 
     gpio_set_direction(UART_DEBUG_PIN, GPIO_MODE_OUTPUT);
 
-    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_HIGH);
+    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
 
     // ml41_start_full_speed();
     // xTaskCreate(ml41_start_full_speed, "ml41_start_full_speed", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
