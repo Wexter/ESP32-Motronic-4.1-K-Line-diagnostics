@@ -81,7 +81,7 @@
 
 #define ECU_ERROR_STATE_1              0x40 // 0100 0000
 #define ECU_ERROR_STATE_ACTIVE         0x60 // 0110 0000
-#define ECU_ERROR_STATE_PAST           0x0A // 1010 0000
+#define ECU_ERROR_STATE_PAST           0xA0 // 1010 0000
 #define ECU_ERROR_STATE_ACTIVE_REPEAT  0xE0 // 1110 0000
 
 static const char* TAG = "esp-k-line";
@@ -120,8 +120,8 @@ uint8_t const ECU_REQUESTS[][8] = {
    // ML4.1 additional parameters
    { 0x06, 0x00, 0x01, 0x01, 0x00, 0x22, 0x03, 0x00 }, // 0x19
    { 0x06, 0x00, 0x01, 0x01, 0x00, 0x29, 0x03, 0x00 }, // 0x1a
-   { 0x06, 0x00, 0x01, 0x01, 0x00, 0x90, 0x03, 0x00 }, // 0x1b
-   { 0x06, 0x00, 0x01, 0x01, 0x00, 0xb0, 0x03, 0x00 }, // 0x1c
+   { 0x06, 0x00, 0x01, 0x01, 0x01, 0x90, 0x03, 0x00 }, // 0x1b
+   { 0x06, 0x00, 0x01, 0x01, 0x01, 0xb0, 0x03, 0x00 }, // 0x1c
 
    // ML4.1 devices test
    { 0x04, 0x00, 0x04, 0x0e, 0x03, 0x00, 0x00, 0x00 }, // 0x1d
@@ -313,14 +313,14 @@ uint8_t ecu_request_queue_get()
 //            * 0x11 - FULL (ecu_response[4] & 3 == 1)
 //            * ERR (ecu_response[4] & 3 == 3)
 //           */
-//           // bVar5 = (ecu_response[4]) & 3;
+//           // bVar5 = (ecu_response[4]) & 3; // bits 0 & 1 0000 0011
 //           // if (bVar5 == 0) { } // MID
 //           // else if (bVar5 == 1) { } // FULL
 //           // else if (bVar5 == 2) { } // IDLE
 //           // else if (bVar5 == 3) { } // ERR
 
 //           /* Transmission type */
-//           if (((ecu_response[4]) & 4) == 0) { } // Manual
+//           if (((ecu_response[4]) & 4) == 0) { } // Manual 
 //           else { } // Auto
 
 //           /* O2 Sensor */
@@ -444,7 +444,7 @@ uint8_t k_line_read_byte(uint8_t* buffer, TickType_t read_timeout, bool send_ech
     return 1;
 }
 
-bool ml41_send_request(uint8_t request_id)
+bool ml41_make_request(uint8_t* rx_buff, uint8_t request_id)
 {
     if (request_id > ECU_MAX_REQUEST) // invalid request id
         return false;
@@ -477,7 +477,7 @@ bool ml41_send_request(uint8_t request_id)
 
 void send_nop_packet()
 {
-    ml41_send_request(ECU_NO_DATA);
+    ml41_make_request(rx_buff, ECU_NO_DATA);
 }
 
 // will read packet and return it's data
@@ -600,14 +600,16 @@ bool ml41_read_ecu_init_data()
 
     delay(15);
 
-    ml41_send_request(ECU_NO_DATA);
-
-    // ECU BOSCH code
-    if (1 > ml41_recv_packet(rx_buff))
+    if (1 > ml41_make_request(rx_buff, ECU_NO_DATA))
     {
         ESP_LOGI(TAG, "BOSCH code read error");
 
         return false;
+    }
+
+    // ECU BOSCH code
+    if (1 > ml41_recv_packet(rx_buff))
+    {
     }
 
     rx_buff[rx_buff[0]] = '\x0';
@@ -617,7 +619,7 @@ bool ml41_read_ecu_init_data()
     delay(15);
 
     // GM CODE + ALFA code
-    ml41_send_request(ECU_NO_DATA);
+    ml41_make_request(rx_buff, ECU_NO_DATA);
 
     // ECU BOSCH code
     if (1 > ml41_recv_packet(rx_buff))
@@ -634,7 +636,7 @@ bool ml41_read_ecu_init_data()
     while (true) {
         delay(50);
 
-        ml41_send_request(ECU_NO_DATA);
+        ml41_make_request(rx_buff, ECU_NO_DATA);
 
         if (1 > ml41_recv_packet(rx_buff))
         {
@@ -643,7 +645,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_AFR);
+        ml41_make_request(rx_buff, ECU_GET_AFR);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -651,7 +653,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_VBAT);
+        ml41_make_request(rx_buff, ECU_GET_VBAT);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -659,7 +661,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_INT_AIR_TEMP);
+        ml41_make_request(rx_buff, ECU_GET_INT_AIR_TEMP);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -667,7 +669,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_COOLANT_TEMP);
+        ml41_make_request(rx_buff, ECU_GET_COOLANT_TEMP);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -675,7 +677,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_ERASE_ERR_CODES);
+        ml41_make_request(rx_buff, ECU_ERASE_ERR_CODES);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -683,7 +685,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_CO_POT);
+        ml41_make_request(rx_buff, ECU_GET_CO_POT);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -691,7 +693,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_O2_SENSOR);
+        ml41_make_request(rx_buff, ECU_GET_O2_SENSOR);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -699,7 +701,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_IGN_TIME);
+        ml41_make_request(rx_buff, ECU_GET_IGN_TIME);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -707,7 +709,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         // delay(50);
-        // ml41_send_request(ECU_GET_ERROR_CODES);
+        // ml41_make_request(rx_buff, ECU_GET_ERROR_CODES);
         //         if (1 > ml41_recv_packet(rx_buff))
         // {
         //     ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -715,7 +717,7 @@ bool ml41_read_ecu_init_data()
         //     return false;
         // }
         delay(50);
-        ml41_send_request(ECU_GET_RPM);
+        ml41_make_request(rx_buff, ECU_GET_RPM);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -723,7 +725,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_TPS);
+        ml41_make_request(rx_buff, ECU_GET_TPS);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -731,7 +733,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_ENG_LOAD);
+        ml41_make_request(rx_buff, ECU_GET_ENG_LOAD);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -739,7 +741,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_INJ_TIME);
+        ml41_make_request(rx_buff, ECU_GET_INJ_TIME);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -747,7 +749,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_AC_DRV_SW);
+        ml41_make_request(rx_buff, ECU_GET_AC_DRV_SW);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -755,7 +757,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_O2_REG);
+        ml41_make_request(rx_buff, ECU_GET_O2_REG);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -763,7 +765,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_FPUMP_RELAY);
+        ml41_make_request(rx_buff, ECU_GET_FPUMP_RELAY);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -771,7 +773,7 @@ bool ml41_read_ecu_init_data()
             return false;
         }
         delay(50);
-        ml41_send_request(ECU_GET_ADSORBER_VALVE);
+        ml41_make_request(rx_buff, ECU_GET_ADSORBER_VALVE);
         if (1 > ml41_recv_packet(rx_buff))
         {
             ESP_LOGI(TAG, "ml41_recv_packet failed");
@@ -786,7 +788,7 @@ bool ml41_read_ecu_init_data()
 
     delay(15);
 
-    ml41_send_request(ECU_END_SESSION);
+    ml41_make_request(rx_buff, ECU_END_SESSION);
 
     if (1 > ml41_recv_packet(rx_buff))
     {
@@ -800,10 +802,8 @@ bool ml41_read_ecu_init_data()
 
 void ml41_init_connection(void *)
 {
-    ESP_LOGI(TAG, "Start slow init");
     ml41_send_slow_init_wakeup();
 
-    ESP_LOGI(TAG, "Start full speed UART");
     if (!ml41_start_full_speed())
     {
         ESP_LOGI(TAG, "ECU connection error: no sync received");
@@ -813,8 +813,6 @@ void ml41_init_connection(void *)
         return;
     }
 
-    ESP_LOGI(TAG, "Sync received");
-
     if (!ml41_recv_keywords())
     {
         ESP_LOGI(TAG, "ECU connection error: no KW received");
@@ -823,31 +821,17 @@ void ml41_init_connection(void *)
         return;
     }
 
-    // ESP_LOGI(TAG, "KW received");
-
     if (!ml41_read_ecu_init_data())
     {
-        // ESP_LOGI(TAG, "ECU init data read error");
-        
         delay(5000);
         return;
     }
-
-    // Start ecu send/recv queue
-    // xTaskCreate();
 }
 
 void app_main(void)
 {
     delay(2000);
-    gpio_reset_pin(UART_DEBUG_PIN);
 
-    gpio_set_direction(UART_DEBUG_PIN, GPIO_MODE_OUTPUT);
-
-    gpio_set_level(UART_DEBUG_PIN, GPIO_LEVEL_LOW);
-
-    // ml41_start_full_speed();
-    // xTaskCreate(ml41_start_full_speed, "ml41_start_full_speed", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
    // start ECU connection task
    xTaskCreate(ml41_init_connection, "ml41_init_connection", 16384, NULL, configMAX_PRIORITIES - 2, NULL);
 }
