@@ -1,0 +1,10 @@
+# This file was generated using idf.py save-defconfig. It can be edited manually.
+# Espressif IoT Development Framework (ESP-IDF) 5.2.1 Project Minimal Configuration
+#
+CONFIG_ESPTOOLPY_HEADER_FLASHSIZE_UPDATE=y
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_BT_ENABLED=y
+CONFIG_UART_ISR_IN_IRAM=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_FREERTOS_HZ=1000
+CONFIG_OPENTHREAD_RX_ON_WHEN_IDLE=y
