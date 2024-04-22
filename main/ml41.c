@@ -101,6 +101,8 @@ void ml41_send_slow_init_wakeup()
 
 bool ml41_start_full_speed()
 {
+    uart_set_pin(UART_NUMBER, UART_TXD_PIN, UART_RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+
     uint8_t rx_byte;
 
     int bytes_read = uart_read_bytes(UART_NUMBER, &rx_byte, 1, MS_TICKS(1000));
@@ -470,6 +472,5 @@ void ml41_init()
 
     uart_param_config(UART_NUMBER, &uart_config);
     uart_set_rx_full_threshold(UART_NUMBER, 1);
-    uart_set_pin(UART_NUMBER, UART_TXD_PIN, UART_RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     // uart_flush_input(UART_NUMBER);
 }
