@@ -37,7 +37,7 @@ uint8_t k_line_read_byte(uint8_t* buffer, TickType_t read_timeout, bool send_ech
         return 0; // no byte received
     }
 
-    ESP_LOGI(__FUNCTION__, "Rx: %X", *last_byte_ptr);
+    // ESP_LOGI(__FUNCTION__, "Rx: %X", *last_byte_ptr);
 
     if (send_echo) // Send echo for all except last one
         k_line_send_byte(~(*last_byte_ptr), false);

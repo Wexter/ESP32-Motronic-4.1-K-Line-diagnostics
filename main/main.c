@@ -10,8 +10,6 @@
 #include "ml41.h"
 #include "utils.h"
 
-#define ML41_DUMP_PACKETS
-
 QueueHandle_t ml41_request_queue;
 
 void data_recv_callback(esp_ble_gatts_cb_param_t *p_data)

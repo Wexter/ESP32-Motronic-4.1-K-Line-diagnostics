@@ -215,7 +215,7 @@ const short ignition_time_values_map[] = {
 };
 */
 
-bool ml41_make_request(uint8_t* rx_buff, uint8_t request_id);
+bool ml41_send_request(uint8_t request_id);
 
 uint8_t ml41_recv_packet(uint8_t* buffer);
 
