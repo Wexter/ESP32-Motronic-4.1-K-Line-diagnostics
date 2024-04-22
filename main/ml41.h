@@ -231,4 +231,6 @@ bool ml41_read_ecu_init_data();
 
 void ml41_init_connection(QueueHandle_t *request_queue);
 
+void ml41_init();
+
 #endif

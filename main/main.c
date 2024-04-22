@@ -55,6 +55,8 @@ void app_main(void)
 
     configure_led();
 
+    ml41_init();
+
     ble_set_spp_data_recv_callback((void *) &data_recv_callback);
 
     ble_spp_init();

@@ -16,8 +16,8 @@
 #define K_LINE_INIT_ECU_DST_ADDRESS 0x10
 #define K_LINE_PACKET_RECV_TIMEOUT_TICKS (MS_TICKS(100)) // 100ms
 
-
 bool k_line_send_byte(const uint8_t send_byte, bool wait_echo_byte);
+
 uint8_t k_line_read_byte(uint8_t* buffer, TickType_t read_timeout, bool send_echo);
 
 /* void UpdateML41Parameters(uint8_t * ecu_response)
