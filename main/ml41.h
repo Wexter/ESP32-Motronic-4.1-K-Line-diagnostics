@@ -2,7 +2,6 @@
 #define ML41_h
 
 #include "freertos/FreeRTOS.h"
-// #include "freertos/task.h"
 #include "stdint.h"
 #include "stdbool.h"
 
@@ -64,14 +63,9 @@ typedef enum {
 typedef struct ml41_connection_t
 {
     uint8_t packet_id;
-    uint8_t last_sent_packet_id;
     ECUConnectionState_t state;
+    QueueHandle_t request_queue;
 } ml41_connection_t;
-
-// static struct ml41_connection_t ecu_connection = {
-//     .packet_id = 0,
-//     .last_sent_packet_id = 0,
-// };
 
 static uint8_t const ECU_REQUESTS[][8] = {
    { 0x03, 0x00, 0x09, 0x03, 0x00, 0x00, 0x00, 0x00 }, // 0x00
@@ -116,7 +110,7 @@ static uint8_t const ECU_REQUESTS[][8] = {
    */
 };
 
-enum EcuRequestID {
+typedef enum {
     NoData, // 0x00
     EndSession, // 0x01
     ReadEPROM, // 0x02
@@ -141,7 +135,7 @@ enum EcuRequestID {
     EnableAdsorberValve, // 0x1E
     EnableIdleValve, // 0x1F
     EcuRequestMax
-};
+} EcuRequestID;
 
 /*
 const short temperature_values_map[] = {
@@ -215,9 +209,11 @@ const short ignition_time_values_map[] = {
 };
 */
 
-bool ml41_send_request(uint8_t request_id);
+void ml41_add_request(EcuRequestID request);
 
-uint8_t ml41_recv_packet(uint8_t* buffer);
+bool ml41_send_request(EcuRequestID request);
+
+uint8_t ml41_recv_packet(uint8_t *buffer);
 
 void ml41_send_slow_init_wakeup();
 
@@ -225,12 +221,12 @@ bool ml41_start_full_speed();
 
 bool ml41_recv_keywords();
 
-void ml41_dump_packet(uint8_t* packet);
+void ml41_dump_packet(uint8_t *packet);
 
 bool ml41_read_ecu_init_data();
 
-void ml41_init_connection(QueueHandle_t *request_queue);
+void ml41_start_connection(ml41_connection_t *connection);
 
-void ml41_init();
+ml41_connection_t * ml41_create_connection();
 
 #endif
