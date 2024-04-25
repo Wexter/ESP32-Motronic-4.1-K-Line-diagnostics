@@ -14,6 +14,8 @@
 
 static ml41_connection_t *__ecu_connection = NULL;
 
+static void (*__ecu_connection_state_change_cb)(ECUConnectionState_t) = NULL;
+
 bool ml41_add_request(EcuRequestID request)
 {
     return xQueueSend(__ecu_connection->request_queue, &request, 10 / portTICK_PERIOD_MS);
@@ -99,6 +101,14 @@ void ml41_send_slow_init_wakeup()
     gpio_set_level(UART_TXD_PIN, GPIO_LEVEL_HIGH);
 
     uart_enable_rx_intr(UART_NUMBER);
+}
+
+void ml41_set_connection_state(ECUConnectionState_t state)
+{
+    __ecu_connection->state = state;
+
+    if (__ecu_connection_state_change_cb != NULL)
+        __ecu_connection_state_change_cb(state);
 }
 
 bool ml41_start_full_speed()
@@ -207,16 +217,14 @@ bool ml41_read_ecu_init_data()
 
 bool ml41_start_connection(ml41_connection_t *connection)
 {
-    if (__ecu_connection->state != Disconnected) 
+    if (__ecu_connection->state != Disconnected)
     {
         ESP_LOGE(__FUNCTION__, "connection already running");
 
         return false;
     }
 
-    __ecu_connection->packet_id = 0;
-
-    __ecu_connection->state = Initialization;
+    ml41_set_connection_state(Initialization);
 
     ESP_LOGI(__FUNCTION__, "UART configured");
 
@@ -226,31 +234,19 @@ bool ml41_start_connection(ml41_connection_t *connection)
     {
         ESP_LOGI(__FUNCTION__, "ECU connection error: no sync received");
 
-        delay(5000);
-
-        __ecu_connection->state = Disconnected;
-
         return false;
     }
-
-    delay(50);
 
     if (!ml41_recv_keywords())
     {
         ESP_LOGI(__FUNCTION__, "ECU connection error: no KW received");
 
-        __ecu_connection->state = Disconnected;
-
         return false;
     }
-
-    delay(50);
 
     if (!ml41_read_ecu_init_data())
     {
         ESP_LOGI(__FUNCTION__, "ECU connection error: init data recv failure");
-
-        __ecu_connection->state = Disconnected;
 
         return false;
     }
@@ -258,7 +254,7 @@ bool ml41_start_connection(ml41_connection_t *connection)
     return true;
 }
 
-ml41_connection_t * ml41_create_connection()
+ml41_connection_t *ml41_create_connection()
 {
     if (__ecu_connection == NULL)
     {
@@ -286,4 +282,9 @@ ml41_connection_t * ml41_create_connection()
     }
 
     return __ecu_connection;
+}
+
+void ml41_set_connection_state_change_cb(void *cb)
+{
+    __ecu_connection_state_change_cb = cb;
 }

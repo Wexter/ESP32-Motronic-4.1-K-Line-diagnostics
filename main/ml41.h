@@ -219,6 +219,8 @@ void ml41_send_slow_init_wakeup();
 
 bool ml41_start_full_speed();
 
+void ml41_set_connection_state(ECUConnectionState_t state);
+
 bool ml41_recv_keywords();
 
 void ml41_dump_packet(uint8_t *packet);
@@ -227,6 +229,8 @@ bool ml41_read_ecu_init_data();
 
 bool ml41_start_connection(ml41_connection_t *connection);
 
-ml41_connection_t * ml41_create_connection();
+ml41_connection_t *ml41_create_connection();
+
+void ml41_set_connection_state_change_cb(void *cb);
 
 #endif

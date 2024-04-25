@@ -12,37 +12,33 @@
 
 ml41_connection_t *ecu_connection = NULL;
 
-static void process_ecu_requests(void *);
+static void start_ecu_connection(void *);
+
+static void send_connection_state(ECUConnectionState_t state)
+{
+    uint8_t spp_data[] = { 0x01, state };
+
+    spp_message_t message = {
+        .size = 2,
+        .data = (uint8_t *) &spp_data
+    };
+
+    ble_send_notification(&message);
+}
 
 void ble_data_recv_callback(esp_ble_gatts_cb_param_t *p_data)
 {
     switch (p_data->write.value[0])
     {
+        case 0x00:
+            send_connection_state(ecu_connection->state);
+            break;
+
         case 0x01: // start ecu connection
-            uint8_t spp_data[] = { 0x01,  Initialization };
-
-            spp_message_t message = {
-                .size = 2,
-                .data = &spp_data
-            };
-
-            send_notification(&message);
+            if (ecu_connection->state != Disconnected) break;
 
             // start ECU connection task
-            if (ml41_start_connection(ecu_connection))
-                xTaskCreate(process_ecu_requests, "ml41_process_ecu_requests", 16384, NULL, configMAX_PRIORITIES - 2, NULL);
-            else
-            {
-                uint8_t spp_data[] = { 0x01,  Disconnected };
-
-                spp_message_t message = {
-                    .size = 2,
-                    .data = &spp_data
-                };
-
-                send_notification(&message);
-            }
-
+            xTaskCreate(start_ecu_connection, "start_ecu_connection", 16384, NULL, configMAX_PRIORITIES - 2, NULL);
             break;
 
         case 0x02:
@@ -59,18 +55,15 @@ void ble_data_recv_callback(esp_ble_gatts_cb_param_t *p_data)
     }
 }
 
-void process_ecu_requests(void *)
+void start_ecu_connection(void *)
 {
-    ecu_connection->state = Connected;
+    if (ecu_connection->state != Disconnected) goto ecu_connection_task_end;
 
-    uint8_t spp_data[] = { 0x01,  Connected };
+    ecu_connection->packet_id = 0;
 
-    spp_message_t message = {
-        .size = 2,
-        .data = &spp_data
-    };
+    if (!ml41_start_connection(ecu_connection)) goto ecu_connection_task_end;
 
-    send_notification(&message);
+    ml41_set_connection_state(Connected);
 
     uint8_t ml41_recv_buff[32] = { 0 };
 
@@ -113,13 +106,16 @@ void process_ecu_requests(void *)
         }
     }
 
-    ecu_connection->state = Disconnected;
+ecu_connection_task_end:
 
-    spp_data[1] = Disconnected;
-
-    send_notification(&message);
+    ml41_set_connection_state(Disconnected);
 
     vTaskDelete(NULL);
+}
+
+void ecu_connection_state_cb(ECUConnectionState_t state)
+{
+    send_connection_state(state);
 }
 
 void app_main(void)
@@ -129,6 +125,8 @@ void app_main(void)
     ecu_connection = ml41_create_connection();
 
     ble_set_spp_data_recv_callback((void *) &ble_data_recv_callback);
+
+    ml41_set_connection_state_change_cb((void *) &ecu_connection_state_cb);
 
     ble_spp_init();
 }

@@ -123,20 +123,10 @@ static const esp_gatts_attr_db_t spp_gatt_db[SPP_IDX_NB] =
     sizeof(uint16_t),sizeof(spp_data_notify_ccc), (uint8_t *)spp_data_notify_ccc}},
 };
 
-// static int ecu_connection_state = Disconnected;
-
 void ble_set_spp_data_recv_callback(void *callback);
 
 bool ble_spp_init();
 
-void send_notification(spp_message_t *spp_message);
-
-// uint8_t find_char_and_desr_index(uint16_t handle);
-
-// void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
-
-// void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
-
-// void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
+void ble_send_notification(spp_message_t *spp_message);
 
 #endif

@@ -10,14 +10,14 @@
 
 static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 
-void (*spp_data_recv_callback)(esp_ble_gatts_cb_param_t *) = NULL;
+void (*__spp_data_recv_callback)(esp_ble_gatts_cb_param_t *) = NULL;
+void (*__client_connected_callback)() = NULL;
 
 static uint16_t spp_mtu_size = 23;
 static uint16_t spp_conn_id = 0xffff;
 static esp_gatt_if_t spp_gatts_if = 0xff;
 
 static bool enable_data_ntf = false;
-static bool is_connected = false;
 static esp_bd_addr_t spp_remote_bda = {0x0,};
 
 static uint16_t spp_handle_table[SPP_IDX_NB];
@@ -39,28 +39,16 @@ static struct gatts_profile_inst spp_profile_tab[SPP_PROFILE_NUM] = {
     },
 };
 
-void send_notification(spp_message_t *spp_message)
+void ble_send_notification(spp_message_t *spp_message)
 {
     if (!enable_data_ntf) {
-        ESP_LOGE(__FUNCTION__, "%s do not enable data Notify", __func__);
+        ESP_LOGE(__FUNCTION__, "Data notify disabled");
 
         return;
     }
 
     esp_ble_gatts_send_indicate(spp_gatts_if, spp_conn_id, spp_handle_table[SPP_IDX_SPP_DATA_NTY_VAL], spp_message->size, spp_message->data, false);
 }
-
-// void set_connection_state(ECUConnectionState_t newState)
-// {
-//     // ecu_connection_state = newState;
-
-//     // spp_message_t spp_message = {
-//     //     .data = { 0x01, (uint8_t) newState },
-//     //     .size = 2
-//     // };
-
-//     // send_notification(&spp_message);
-// }
 
 static uint8_t find_char_and_desr_index(uint16_t handle)
 {
@@ -149,8 +137,8 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                 if ((p_data->write.len == 2) && (p_data->write.value[1] == 0x00))
                     enable_data_ntf = p_data->write.value[0] == 0x01;
             } else if (res == SPP_IDX_SPP_DATA_RECV_VAL) {
-                if (spp_data_recv_callback != NULL)
-                    spp_data_recv_callback(p_data);
+                if (__spp_data_recv_callback != NULL)
+                    __spp_data_recv_callback(p_data);
             }
             break;
 
@@ -178,14 +166,16 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                 break;
 
         case ESP_GATTS_CONNECT_EVT:
+            ESP_LOGI(__FUNCTION__, "Client connected");
             spp_conn_id = p_data->connect.conn_id;
             spp_gatts_if = gatts_if;
-            is_connected = true;
             memcpy(&spp_remote_bda, &p_data->connect.remote_bda, sizeof(esp_bd_addr_t));
+            if (__client_connected_callback != NULL)
+                __client_connected_callback();
             break;
 
         case ESP_GATTS_DISCONNECT_EVT:
-            is_connected = false;
+            ESP_LOGI(__FUNCTION__, "Client disconnected");
             enable_data_ntf = false;
             esp_ble_gap_start_advertising(&spp_adv_params);
             break;
@@ -224,9 +214,9 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
 
 void ble_set_spp_data_recv_callback(void *callback)
 {
-    if (spp_data_recv_callback != NULL) return;
+    if (__spp_data_recv_callback != NULL) return;
 
-    spp_data_recv_callback = (void (*)(esp_ble_gatts_cb_param_t *))callback;
+    __spp_data_recv_callback = (void (*)(esp_ble_gatts_cb_param_t *))callback;
 }
 
 bool ble_spp_init()
