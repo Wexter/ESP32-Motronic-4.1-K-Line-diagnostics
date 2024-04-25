@@ -73,9 +73,9 @@ void start_ecu_connection(void *)
     {
         if (xQueueReceive(ecu_connection->request_queue, &request_idx, MS_TICKS(100)))
         {
-            if (!ml41_send_request(EndSession))
+            if (!ml41_send_request(request_idx))
             {
-                ESP_LOGE(__FUNCTION__, "Failed to make request %d", EndSession);
+                ESP_LOGE(__FUNCTION__, "Failed to make request %d", request_idx);
 
                 break;
             }
@@ -89,6 +89,13 @@ void start_ecu_connection(void *)
 
                 break;
             }
+
+            spp_message_t ecu_data_message = {
+                .size = ml41_recv_buff[0] + 1,
+                .data = &ml41_recv_buff
+            };
+
+            ble_send_notification(&ecu_data_message);
         }
         else
         {
