@@ -60,10 +60,10 @@ struct gatts_profile_inst {
     esp_bt_uuid_t descr_uuid;
 };
 
-typedef struct spp_data {
+typedef struct spp_message {
     uint16_t size;
     uint8_t *data;
-} spp_data_t;
+} spp_message_t;
 
 /*
  *  SPP PROFILE ATTRIBUTES
@@ -129,7 +129,7 @@ void ble_set_spp_data_recv_callback(void *callback);
 
 bool ble_spp_init();
 
-void send_notification(spp_data_t *spp_message);
+void send_notification(spp_message_t *spp_message);
 
 // uint8_t find_char_and_desr_index(uint16_t handle);
 

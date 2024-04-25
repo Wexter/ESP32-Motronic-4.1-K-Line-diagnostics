@@ -39,10 +39,10 @@ static struct gatts_profile_inst spp_profile_tab[SPP_PROFILE_NUM] = {
     },
 };
 
-void send_notification(spp_data_t *spp_message)
+void send_notification(spp_message_t *spp_message)
 {
     if (!enable_data_ntf) {
-        ESP_LOGE(__FILE__, "%s do not enable data Notify", __func__);
+        ESP_LOGE(__FUNCTION__, "%s do not enable data Notify", __func__);
 
         return;
     }
@@ -54,7 +54,7 @@ void send_notification(spp_data_t *spp_message)
 // {
 //     // ecu_connection_state = newState;
 
-//     // spp_data_t spp_message = {
+//     // spp_message_t spp_message = {
 //     //     .data = { 0x01, (uint8_t) newState },
 //     //     .size = 2
 //     // };
@@ -76,14 +76,14 @@ static uint8_t find_char_and_desr_index(uint16_t handle)
 
 static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
 {
-    ESP_LOGI(__FILE__, "EVT %d, gatts if %d", event, gatts_if);
+    ESP_LOGI(__FUNCTION__, "EVT %d, gatts if %d", event, gatts_if);
 
     /* If event is register event, store the gatts_if for each profile */
     if (event == ESP_GATTS_REG_EVT) {
         if (param->reg.status == ESP_GATT_OK) {
             spp_profile_tab[SPP_PROFILE_APP_IDX].gatts_if = gatts_if;
         } else {
-            ESP_LOGI(__FILE__, "Reg app failed, app_id %04x, status %d",param->reg.app_id, param->reg.status);
+            ESP_LOGI(__FUNCTION__, "Reg app failed, app_id %04x, status %d",param->reg.app_id, param->reg.status);
             return;
         }
     }
@@ -102,7 +102,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 {
     esp_err_t err;
 
-    ESP_LOGE(__FILE__, "GAP_EVT, event %d", event);
+    ESP_LOGE(__FUNCTION__, "GAP_EVT, event %d", event);
 
     switch (event) {
         case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT:
@@ -111,7 +111,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
             //advertising start complete event to indicate advertising start successfully or failed
             if ((err = param->adv_start_cmpl.status) != ESP_BT_STATUS_SUCCESS) {
-                ESP_LOGE(__FILE__, "Advertising start failed: %s", esp_err_to_name(err));
+                ESP_LOGE(__FUNCTION__, "Advertising start failed: %s", esp_err_to_name(err));
             }
             break;
         default:
@@ -134,7 +134,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
 
         case ESP_GATTS_READ_EVT:
             // res = find_char_and_desr_index(p_data->read.handle);
-            // ESP_LOGI(__FILE__, "ESP_GATTS_READ_EVT : handle = %d", res);
+            // ESP_LOGI(__FUNCTION__, "ESP_GATTS_READ_EVT : handle = %d", res);
             break;
 
         case ESP_GATTS_WRITE_EVT:
@@ -143,7 +143,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
 
             res = find_char_and_desr_index(p_data->write.handle);
 
-            ESP_LOGI(__FILE__, "ESP_GATTS_WRITE_EVT : handle = %d", res);
+            ESP_LOGI(__FUNCTION__, "ESP_GATTS_WRITE_EVT : handle = %d", res);
 
             if (res == SPP_IDX_SPP_DATA_NTF_CFG) {
                 if ((p_data->write.len == 2) && (p_data->write.value[1] == 0x00))
@@ -155,7 +155,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             break;
 
         case ESP_GATTS_EXEC_WRITE_EVT:
-            ESP_LOGI(__FILE__, "ESP_GATTS_EXEC_WRITE_EVT");
+            ESP_LOGI(__FUNCTION__, "ESP_GATTS_EXEC_WRITE_EVT");
             break;
 
         case ESP_GATTS_MTU_EVT:
@@ -206,11 +206,11 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             break;
 
         case ESP_GATTS_CREAT_ATTR_TAB_EVT:
-            ESP_LOGI(__FILE__, "The number handle =%x",param->add_attr_tab.num_handle);
+            ESP_LOGI(__FUNCTION__, "The number handle =%x",param->add_attr_tab.num_handle);
             if (param->add_attr_tab.status != ESP_GATT_OK) {
-                ESP_LOGE(__FILE__, "Create attribute table failed, error code=0x%x", param->add_attr_tab.status);
+                ESP_LOGE(__FUNCTION__, "Create attribute table failed, error code=0x%x", param->add_attr_tab.status);
             } else if (param->add_attr_tab.num_handle != SPP_IDX_NB) {
-                ESP_LOGE(__FILE__, "Create attribute table abnormally, num_handle (%d) doesn't equal to HRS_IDX_NB(%d)", param->add_attr_tab.num_handle, SPP_IDX_NB);
+                ESP_LOGE(__FUNCTION__, "Create attribute table abnormally, num_handle (%d) doesn't equal to HRS_IDX_NB(%d)", param->add_attr_tab.num_handle, SPP_IDX_NB);
             } else {
                 memcpy(spp_handle_table, param->add_attr_tab.handles, sizeof(spp_handle_table));
                 esp_ble_gatts_start_service(spp_handle_table[SPP_IDX_SVC]);
@@ -247,29 +247,29 @@ bool ble_spp_init()
 
     ret = esp_bt_controller_init(&bt_cfg);
     if (ret) {
-        ESP_LOGE(__FILE__, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
+        ESP_LOGE(__FUNCTION__, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
         return false;
     }
 
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
     if (ret) {
-        ESP_LOGE(__FILE__, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
+        ESP_LOGE(__FUNCTION__, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
         return false;
     }
 
-    ESP_LOGI(__FILE__, "%s init bluetooth", __func__);
+    ESP_LOGI(__FUNCTION__, "%s init bluetooth", __func__);
 
     esp_bluedroid_config_t bluedroid_cfg = BT_BLUEDROID_INIT_CONFIG_DEFAULT();
 
     ret = esp_bluedroid_init_with_cfg(&bluedroid_cfg);
     if (ret) {
-        ESP_LOGE(__FILE__, "%s init bluetooth failed: %s", __func__, esp_err_to_name(ret));
+        ESP_LOGE(__FUNCTION__, "%s init bluetooth failed: %s", __func__, esp_err_to_name(ret));
         return false;
     }
 
     ret = esp_bluedroid_enable();
     if (ret) {
-        ESP_LOGE(__FILE__, "%s enable bluetooth failed: %s", __func__, esp_err_to_name(ret));
+        ESP_LOGE(__FUNCTION__, "%s enable bluetooth failed: %s", __func__, esp_err_to_name(ret));
         return false;
     }
 

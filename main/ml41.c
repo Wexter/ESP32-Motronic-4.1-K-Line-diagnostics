@@ -4,17 +4,13 @@
 #include "esp_log.h"
 
 #include "ml41.h"
-#include "ble.h"
 #include "k-line.h"
 
-#define ML41_DUMP_PACKET(buffer) ml41_dump_packet(buffer)
+// #define ML41_DUMP_PACKET(buffer) ml41_dump_packet(buffer)
 
-static uint8_t spp_end_session_data[5] = { 0x02, 0x03, 0x00, 0x06, 0x03, };
-
-static spp_data_t spp_end_session = {
-    .size = 5,
-    .data = spp_end_session_data
-};
+#ifndef ML41_DUMP_PACKET
+#define ML41_DUMP_PACKET(buffer)
+#endif
 
 static ml41_connection_t *__ecu_connection = NULL;
 
@@ -41,11 +37,6 @@ bool ml41_send_request(EcuRequestID request_id)
 
     ML41_DUMP_PACKET(packet);
 
-// #ifdef ML41_DUMP_PACKETS
-//     ESP_LOGI(__FUNCTION__, "Sending packet length: %d bytes", packet[0]);
-//     ml41_dump_packet(packet);
-// #endif
-
     for (uint8_t idx = 0; idx <= packet_length; idx++)
         if (!k_line_send_byte(packet[idx], idx < packet_length))
         {
@@ -61,6 +52,13 @@ uint8_t ml41_recv_packet(uint8_t* buffer)
     if (1 > k_line_read_byte(buffer, MS_TICKS(100), true))
         return 0;
 
+    if (buffer[0] > 0x0D)
+    {
+        ESP_LOGE(__FUNCTION__, "Invalid packet length %d", buffer[0]);
+
+        return 0;
+    }
+
     ESP_LOGI(__FUNCTION__, "Incoming packet length: %d bytes", (int) buffer[0]);
 
     for (uint8_t idx = 1; idx <= buffer[0]; idx++)
@@ -72,10 +70,6 @@ uint8_t ml41_recv_packet(uint8_t* buffer)
     }
 
     ML41_DUMP_PACKET(buffer);
-
-// #ifdef ML41_DUMP_PACKETS
-//     ml41_dump_packet(buffer);
-// #endif
 
     __ecu_connection->packet_id++;
 
@@ -211,79 +205,13 @@ bool ml41_read_ecu_init_data()
     return true;
 }
 
-static void ml41_process_ecu_requests(void *params)
-{
-    __ecu_connection->state = Connected;
-
-    uint8_t ml41_recv_buff[32] = { 0 };
-
-    uint8_t request_idx;
-
-    while (true)
-    {
-        if (xQueueReceive(__ecu_connection->request_queue, &request_idx, MS_TICKS(100))) {
-            // ESP_LOGI(__FUNCTION__, "message size: %d message ptr: %p data ptr: %p \r\n", spp_message->size, spp_message, spp_message->data);
-
-            // ESP_LOG_BUFFER_HEXDUMP(__FUNCTION__, spp_message->data, spp_message->size, ESP_LOG_INFO);
-
-            if (request_idx == EndSession)
-            {
-                if (!ml41_send_request(EndSession))
-                {
-                    ESP_LOGI(__FUNCTION__, "Failed to make request %d", EndSession);
-                    // break;
-                }
-
-                if (!ml41_recv_packet(ml41_recv_buff))
-                    ESP_LOGI(__FUNCTION__, "Failed to recv packet");
-
-                send_notification(&spp_end_session);
-                break;
-            }
-
-            // {
-            //     if (!ml41_send_request(spp_message->data[1]))
-            //     {
-            //         ESP_LOGI(__FUNCTION__, "Failed to make request %d", spp_message->data[1]);
-            //         break;
-            //     }
-
-            //     if (!ml41_recv_packet(ml41_recv_buff))
-            //     {
-            //         ESP_LOGI(__FUNCTION__, "Failed to recv packet");
-            //     }
-
-            //     send_notification(&spp_end_session);
-            //     free(spp_message->data);
-            //     free(spp_message);
-            //     break;
-            // }
-        } else {
-            if (!ml41_send_request(NoData))
-            {
-                ESP_LOGI(__FUNCTION__, "Failed to make request %d", NoData);
-                break;
-            }
-
-            if (!ml41_recv_packet(ml41_recv_buff))
-            {
-                ESP_LOGI(__FUNCTION__, "Failed to recv packet");
-                break;
-            }
-
-            // send_notification(&no_data_notify);
-        }
-    }
-
-    vTaskDelete(NULL);
-}
-
-void ml41_start_connection(ml41_connection_t *connection)
+bool ml41_start_connection(ml41_connection_t *connection)
 {
     if (__ecu_connection->state != Disconnected) 
     {
         ESP_LOGE(__FUNCTION__, "connection already running");
-        return;
+
+        return false;
     }
 
     __ecu_connection->packet_id = 0;
@@ -300,7 +228,9 @@ void ml41_start_connection(ml41_connection_t *connection)
 
         delay(5000);
 
-        return;
+        __ecu_connection->state = Disconnected;
+
+        return false;
     }
 
     delay(50);
@@ -309,7 +239,9 @@ void ml41_start_connection(ml41_connection_t *connection)
     {
         ESP_LOGI(__FUNCTION__, "ECU connection error: no KW received");
 
-        return;
+        __ecu_connection->state = Disconnected;
+
+        return false;
     }
 
     delay(50);
@@ -318,10 +250,12 @@ void ml41_start_connection(ml41_connection_t *connection)
     {
         ESP_LOGI(__FUNCTION__, "ECU connection error: init data recv failure");
 
-        return;
+        __ecu_connection->state = Disconnected;
+
+        return false;
     }
 
-    xTaskCreate(ml41_process_ecu_requests, "ml41_process_ecu_requests", 16384, connection, configMAX_PRIORITIES - 2, NULL);
+    return true;
 }
 
 ml41_connection_t * ml41_create_connection()
@@ -347,6 +281,8 @@ ml41_connection_t * ml41_create_connection()
         __ecu_connection = malloc(sizeof(ml41_connection_t));
 
         __ecu_connection->request_queue = xQueueCreate(32, sizeof(EcuRequestID));
+
+        __ecu_connection->state = Disconnected;
     }
 
     return __ecu_connection;
