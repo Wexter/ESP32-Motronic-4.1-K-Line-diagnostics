@@ -63,6 +63,8 @@ void start_ecu_connection(void *)
 
 #ifdef CONFIG_ML41_EMULATE_ECU
     // ecu_connection->ecu_eprom_code;
+    ml41_set_connection_state(Initialization);
+
     delay(2300);
 #else
     if (!ml41_start_connection(ecu_connection)) goto ecu_connection_task_end;
@@ -108,7 +110,6 @@ void start_ecu_connection(void *)
             };
 
             ble_send_notification(&response_message);
-
 #else
             if (!ml41_recv_packet(ml41_recv_buff))
             {
