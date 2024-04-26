@@ -61,7 +61,12 @@ void start_ecu_connection(void *)
 
     ecu_connection->packet_id = 0;
 
+#ifdef CONFIG_ML41_EMULATE_ECU
+    // ecu_connection->ecu_eprom_code;
+    delay(2300);
+#else
     if (!ml41_start_connection(ecu_connection)) goto ecu_connection_task_end;
+#endif
 
     ml41_set_connection_state(Connected);
 
@@ -73,16 +78,38 @@ void start_ecu_connection(void *)
     {
         if (xQueueReceive(ecu_connection->request_queue, &request_idx, MS_TICKS(100)))
         {
+#ifdef CONFIG_ML41_EMULATE_ECU
+            delay(100);
+#else
             if (!ml41_send_request(request_idx))
             {
                 ESP_LOGE(__FUNCTION__, "Failed to make request %d", request_idx);
 
                 break;
             }
+#endif
 
             if (request_idx == EndSession) // don't wait response
                 break;
 
+#ifdef CONFIG_ML41_EMULATE_ECU
+            uint8_t response_data[32] = { 0x00 };
+
+            if (request_idx >= EcuRequestMax)
+                request_idx = 0;
+
+            memcpy(response_data, ECU_RESPONSES[request_idx], ECU_RESPONSES[request_idx][0] + 1);
+
+            response_data[1] = ecu_connection->packet_id;
+
+            spp_message_t response_message = {
+                .size = response_data[0] + 1,
+                .data = (uint8_t *) response_data
+            };
+
+            ble_send_notification(&response_message);
+
+#else
             if (!ml41_recv_packet(ml41_recv_buff))
             {
                 ESP_LOGE(__FUNCTION__, "Failed to recv packet");
@@ -92,13 +119,15 @@ void start_ecu_connection(void *)
 
             spp_message_t ecu_data_message = {
                 .size = ml41_recv_buff[0] + 1,
-                .data = &ml41_recv_buff
+                .data = (uint8_t *) &ml41_recv_buff
             };
 
             ble_send_notification(&ecu_data_message);
+#endif
         }
         else
         {
+#ifndef CONFIG_ML41_EMULATE_ECU
             if (!ml41_send_request(NoData))
             {
                 ESP_LOGE(__FUNCTION__, "Failed to make request %d", NoData);
@@ -110,6 +139,7 @@ void start_ecu_connection(void *)
                 ESP_LOGE(__FUNCTION__, "Failed to recv packet");
                 break;
             }
+#endif
         }
     }
 

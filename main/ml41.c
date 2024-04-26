@@ -16,6 +16,30 @@ static ml41_connection_t *__ecu_connection = NULL;
 
 static void (*__ecu_connection_state_change_cb)(ECUConnectionState_t) = NULL;
 
+#ifdef CONFIG_ML41_EMULATE_ECU
+
+uint8_t find_request_packet_idx(const uint8_t *packet)
+{
+    for (uint8_t request_idx = 0; request_idx < EcuRequestMax; request_idx++)
+    {
+        if (packet[0] != ECU_REQUESTS[request_idx][0]) // compapre length first
+            continue;
+
+        uint8_t byte_idx = 2;
+
+        for (; byte_idx < packet[0]; byte_idx++)
+            if (packet[byte_idx] != ECU_REQUESTS[request_idx][byte_idx])
+                break;
+
+        if (byte_idx == packet[0])
+            return request_idx;
+    }
+
+    return 0xFF;
+}
+#endif
+
+
 bool ml41_add_request(EcuRequestID request)
 {
     return xQueueSend(__ecu_connection->request_queue, &request, 10 / portTICK_PERIOD_MS);

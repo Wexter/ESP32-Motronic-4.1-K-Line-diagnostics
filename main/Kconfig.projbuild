@@ -1,0 +1,8 @@
+menu "ML41 Configuration"
+
+    config ML41_EMULATE_ECU
+        bool "Emulate ML41 ECU"
+        default n
+        help
+            ML41 ECU Emulation mode
+endmenu
