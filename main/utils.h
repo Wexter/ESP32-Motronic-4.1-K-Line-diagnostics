@@ -16,7 +16,17 @@
 #define GPIO_LEVEL_HIGH 1
 #endif
 
+#if CONFIG_IDF_TARGET_ESP32C3
+#define LED_ENABLED 0
+#define LED_DISABLED 1
+
+#define LED_GPIO 8
+#else
+#define LED_ENABLED 1
+#define LED_DISABLED 0
+
 #define LED_GPIO 2
+#endif
 #define LED_BLINK_DELAY 200
 
 void enable_led(void);

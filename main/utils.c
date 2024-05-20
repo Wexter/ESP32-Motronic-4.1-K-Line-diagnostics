@@ -2,12 +2,12 @@
 
 void enable_led(void)
 {
-    gpio_set_level(LED_GPIO, 1);
+    gpio_set_level(LED_GPIO, LED_ENABLED);
 }
 
 void disable_led(void)
 {
-    gpio_set_level(LED_GPIO, 0);
+    gpio_set_level(LED_GPIO, LED_DISABLED);
 }
 
 void blink_led(uint8_t count)
@@ -27,4 +27,6 @@ void configure_led(void)
     gpio_reset_pin(LED_GPIO);
 
     gpio_set_direction(LED_GPIO, GPIO_MODE_OUTPUT);
+
+    disable_led();
 }
