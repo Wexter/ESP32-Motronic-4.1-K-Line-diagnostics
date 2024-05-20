@@ -13,7 +13,7 @@
 #define SPP_PROFILE_NUM             1
 #define SPP_PROFILE_APP_IDX         0
 #define ESP_SPP_APP_ID              0x56
-#define SAMPLE_DEVICE_NAME          "ESP_SPP_SERVER"    //The Device Name Characteristics in GAP
+#define SAMPLE_DEVICE_NAME          "ESP_ML41_DIAG"    //The Device Name Characteristics in GAP
 #define SPP_SVC_INST_ID             0
 
 #define spp_sprintf(s,...)         sprintf((char*)(s), ##__VA_ARGS__)
@@ -42,7 +42,7 @@ static const uint8_t spp_adv_data[23] = {
     /* Complete List of 16-bit Service Class UUIDs */
     0x03,0x03,0xF0,0xAB,
     /* Complete Local Name in advertising */
-    0x0F,0x09, 'E', 'S', 'P', '_', 'S', 'P', 'P', '_', 'S', 'E', 'R','V', 'E', 'R'
+    0x0F,0x09, 'E', 'S', 'P', '_', 'M', 'L', '4', '1', '_', 'D', 'I', 'A', 'G'
 };
 
 struct gatts_profile_inst {
