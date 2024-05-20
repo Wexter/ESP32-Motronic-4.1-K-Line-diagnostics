@@ -59,6 +59,8 @@ void start_ecu_connection(void *)
 {
     if (ecu_connection->state != Disconnected) goto ecu_connection_task_end;
 
+    enable_led();
+
     ecu_connection->packet_id = 0;
 
 #ifdef CONFIG_ML41_EMULATE_ECU
@@ -145,6 +147,8 @@ void start_ecu_connection(void *)
     }
 
 ecu_connection_task_end:
+
+    disable_led();
 
     ml41_set_connection_state(Disconnected);
 
